@@ -90,6 +90,7 @@ def _provision(user: User) -> str:
         "name": f"edify-coach-{user.id}",
         "description": f"Edify Coach for student {user.id}",
         "framework": "custom",
+        "tier": settings.MARITIME_COACH_TIER,  # smart: $1 a month a student, asleep between jobs
         "githubRepo": settings.MARITIME_COACH_REPO,
         "branch": settings.MARITIME_COACH_BRANCH,
         "healthCheckPath": "/health",

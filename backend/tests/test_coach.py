@@ -127,6 +127,7 @@ def test_each_student_gets_their_own_agent_on_maritime(client, agent, monkeypatc
     assert paths[1] == ("POST", f"/api/v1/end-users/edify_{uid}/agents")
     create = calls[1][2]
     assert create["githubRepo"] == "https://github.com/edify/edify-coach" and create["healthCheckPath"] == "/health"
+    assert create["tier"] == "smart"  # $1 a month a student, not always_on's $10
     assert paths[2] == ("POST", "/api/agents/agt_123/triggers") and calls[2][2]["type"] == "cron"
     assert ("POST", "/api/agents/agt_123/chat") in paths
 

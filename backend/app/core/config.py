@@ -219,6 +219,9 @@ class Settings(BaseSettings):
     MARITIME_COACH_BRANCH: str = "main"
     MARITIME_COACH_URL: str = ""
     MARITIME_USE_LLM: bool = False  # true: coaches use Maritime's metered LLM instead of Edify's LLM key
+    # Maritime's machine tier per coach: smart ($1/month, sleeps when idle and wakes on chat or schedule),
+    # extended ($5) or always_on ($10). A coach works in short bursts, so smart is enough.
+    MARITIME_COACH_TIER: str = "smart"
     COACH_NIGHTLY_CRON: str = "30 21 * * *"  # the nightly review, India time
     # Admin panel (/admin): its own ID and password, separate from every student account.
     # Set them with set_admin.bat, which stores only a bcrypt hash of the password.
