@@ -454,6 +454,7 @@ export const api = {
     request<{ token: string; username: string; expires_in: number }>("POST", "/admin/login", { username, password }, { admin: true }),
   adminOverview: () => request<AdminOverview>("GET", "/admin/overview", undefined, { admin: true }),
   adminCoaches: () => request<CoachFleet>("GET", "/admin/coaches", undefined, { admin: true }),
+  adminRegisterCoaches: () => request<{ registered: number; waiting: number }>("POST", "/admin/coaches/register", undefined, { admin: true }),
   adminMentors: (status = "pending") => request<MentorApplication[]>("GET", `/admin/mentors?status=${status}`, undefined, { admin: true }),
   adminMentorProof: async (id: number) => URL.createObjectURL(await (await request<Response>("GET", `/admin/mentors/${id}/proof`, undefined, { admin: true, raw: true })).blob()),
   adminMentorReview: (id: number, approve: boolean, note = "") => request<{ id: number; status: string }>("POST", `/admin/mentors/${id}/review`, { approve, note }, { admin: true }),

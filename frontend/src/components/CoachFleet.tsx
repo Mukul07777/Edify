@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Gauge, MessageSquare, Users } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Badge, Card, CardHeader, Skeleton } from "@/components/ui/primitives";
 import { api } from "@/lib/api";
 import { cn, timeAgo } from "@/lib/utils";
@@ -20,15 +22,29 @@ function Spark({ values }: { values: number[] }) {
 
 export function CoachFleet() {
   const { data: f, error } = useQuery({ queryKey: ["admin-coaches"], queryFn: api.adminCoaches, refetchInterval: 60_000 });
+  const qc = useQueryClient();
+  const register = useMutation({
+    mutationFn: api.adminRegisterCoaches,
+    onSuccess: (r) => {
+      toast.success(r.waiting ? `${r.registered} registered on Maritime; ${r.waiting} waiting (Maritime didn't answer)` : `${r.registered} registered on Maritime`);
+      qc.invalidateQueries({ queryKey: ["admin-coaches"] });
+    },
+    onError: () => toast.error("Maritime couldn't be reached. Try again in a minute."),
+  });
   if (error && !f) return null;
   if (!f) return <Skeleton className="h-40" />;
-  const where = f.mode === "maritime" ? "One Maritime machine per student" : f.mode === "local" ? "Running on this computer until Maritime has a card" : "Off";
+  const where = f.mode === "maritime" ? "One Maritime machine per student"
+    : f.mode === "local" ? "Coaches run on this computer until Maritime has a card; each student is already on Maritime with their limits" : "Off";
+  const waiting = f.coaches.filter((c) => !c.maritime_user).length;
   const m = f.maritime;
 
   return (
     <Card>
       <CardHeader title="Edify Coach fleet" icon={<Bot className="h-4 w-4" />} subtitle={where}
-        action={<Badge tone={f.mode === "maritime" ? "accent" : "neutral"}>{f.mode === "maritime" ? `Maritime · ${f.tier}` : f.mode ?? "off"}</Badge>} />
+        action={<div className="flex items-center gap-2">
+          {waiting > 0 && <Button size="sm" variant="secondary" loading={register.isPending} onClick={() => register.mutate()}>Register {waiting} on Maritime</Button>}
+          <Badge tone={f.mode === "maritime" ? "accent" : "neutral"}>{f.mode === "maritime" ? `Maritime · ${f.tier}` : f.mode ?? "off"}</Badge>
+        </div>} />
       <div className="grid gap-3 px-5 pt-4 sm:grid-cols-4">
         {[
           { icon: Users, label: "Students with a coach", value: f.coaches.length },
@@ -46,7 +62,7 @@ export function CoachFleet() {
       <div className="mt-4 overflow-x-auto">
         <table className="w-full whitespace-nowrap text-[13px]">
           <thead className="text-left text-xs text-muted">
-            <tr>{["Student", "Where", "Machine", "Lectures", "Plans", "Maritime: 14 days", "AI (30 d)", "Last planned"].map((h) => <th key={h} className="px-5 py-2 font-medium">{h}</th>)}</tr>
+            <tr>{["Student", "Where", "On Maritime", "Machine", "Lectures", "Plans", "Maritime: 14 days", "AI (30 d)", "Last planned"].map((h) => <th key={h} className="px-5 py-2 font-medium">{h}</th>)}</tr>
           </thead>
           <tbody>
             {f.coaches.map((c) => {
@@ -55,6 +71,9 @@ export function CoachFleet() {
                 <tr key={c.user_id} className="border-t border-line">
                   <td className="px-5 py-2 font-medium">{c.name}</td>
                   <td className="px-5 py-2">{c.mode === "maritime" ? "Maritime" : "This PC"}</td>
+                  <td className="px-5 py-2">{c.maritime_user
+                    ? <Badge tone="ok">{mu?.policy?.llm_spend_cap_cents_per_month !== undefined ? `limits: ${dollars(mu.policy.llm_spend_cap_cents_per_month)} AI` : "registered"}</Badge>
+                    : <span className="text-muted">not yet</span>}</td>
                   <td className="px-5 py-2 text-muted">{mu?.agent_status.join(", ") || c.status}</td>
                   <td className="px-5 py-2 tabular-nums">{c.lectures}</td>
                   <td className="px-5 py-2 tabular-nums">{c.reviews}</td>

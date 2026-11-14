@@ -92,7 +92,8 @@ export function CoachCard() {
 
   if (!data) return null;
   if (!data.available) return null;
-  const maritime = data.on_maritime && <Badge><Bot className="h-3 w-3" /> On Maritime</Badge>;
+  const maritime = data.on_maritime ? <Badge><Bot className="h-3 w-3" /> On Maritime</Badge>
+    : data.maritime_user ? <Badge title="You're registered on Maritime with your own limits. Your coach moves there once Edify's Maritime billing is on."><Bot className="h-3 w-3" /> Limits on Maritime</Badge> : null;
 
   if (!data.enabled) {
     return (
