@@ -128,8 +128,9 @@ def seed(client, password: str, reset: bool = False) -> dict:
     for key in ("student", "hindi", "classmate"):
         client.post("/api/classes/join", headers=h[key], json={"code": batch["code"]}).raise_for_status()
     traced = 0
-    # (student, chapter, which check they miss): the two "deepest" misses share one root, so the map says teach it first
-    for key, chapter_id, miss in (("student", "physics.rotational-motion", "deepest"), ("classmate", "physics.rotational-motion", "deepest"),
+    # (student, chapter, the check they miss): the two Rotational Motion students miss the same earlier idea (sine and
+    # cosine, behind torque = rF sin θ, when the AI's chain has it), so the map says to teach it first
+    for key, chapter_id, miss in (("student", "physics.rotational-motion", "trigonometry"), ("classmate", "physics.rotational-motion", "trigonometry"),
                                   ("hindi", "physics.laws-of-motion", "nearest")):
         r = client.post("/api/gaps", headers=h[key], json={"chapter_id": chapter_id})
         if r.status_code != 200:
@@ -138,7 +139,7 @@ def seed(client, password: str, reset: bool = False) -> dict:
         trace_id = r.json()["id"]
         with SessionLocal() as db:
             chain = db.get(GapTrace, trace_id).chain
-        wrong = len(chain) - 1 if miss == "deepest" else 0
+        wrong = 0 if miss == "nearest" else next((i for i, c in enumerate(chain) if miss in c["name"].lower()), len(chain) - 1)
         picks = [(c["check"]["answer"] + 1) % len(c["check"]["options"]) if i == wrong else c["check"]["answer"]
                  for i, c in enumerate(chain)]
         client.post(f"/api/gaps/{trace_id}/answers", headers=h[key], json={"answers": picks}).raise_for_status()
