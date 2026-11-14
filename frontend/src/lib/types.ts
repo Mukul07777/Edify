@@ -1127,7 +1127,7 @@ export interface WeakDraft {
 export interface WeakCheckResult { weak: boolean; cleared: boolean; percent: number; needed: number; enough_questions: boolean }
 
 /* ---------------------------------------------------------------- Edify Coach (each student's agent on Maritime) */
-export interface CoachPlanItem { kind: "root" | "revise" | "weak" | "mock" | "start"; title: string; why: string; minutes: number; lecture_id?: string; trace_id?: number }
+export interface CoachPlanItem { kind: "root" | "root_check" | "revise" | "weak" | "mock" | "start"; title: string; why: string; minutes: number; lecture_id?: string; trace_id?: number; chapter_id?: string }
 export interface CoachPlan { for: string; made_at: string; items: CoachPlanItem[]; minutes: number; headline: string; nudges: string[]; source: "ai" | "offline" }
 export interface CoachPack {
   lecture_id: string; title: string; subject?: string | null; made_at: string; headline: string; key_points: string[]; formulas: string[];
@@ -1172,6 +1172,9 @@ export interface GapTrace {
 export interface GapOverview {
   traces: GapTrace[]; fixed: number;
   suggestions: { chapter_id: string; topic_id: string | null; subject: string; name: string; chapter: string; misses: number }[];
+  /** likely root gaps, from weak spots alone: two or more weak chapters resting on the same earlier one */
+  suspects?: { chapter_id: string; name: string; subject: string | null; cls: number | null; idea: string;
+    because: string[]; misses: number; trace_chapter_id: string }[];
   chapters: { id: string; subject: string; name: string; cls: number }[];
 }
 export interface NextClassKit {

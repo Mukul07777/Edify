@@ -225,6 +225,18 @@ function Picker({ onStart, busy }: { onStart: (chapterId: string, topicId?: stri
               ))}
             </div>
           )}
+          {(data.suspects ?? []).map((s) => (
+            <div key={s.chapter_id} className="rounded-xl border border-warn/50 bg-warn/10 p-4">
+              <div className="caps mb-1 flex items-center gap-1.5 text-[11px] font-medium text-warn"><Sparkles size={13} /> Edify noticed</div>
+              <p className="text-[14.5px] leading-relaxed">
+                Your mistakes in <b>{s.because.slice(0, 3).join(", ")}</b> all rest on{" "}
+                <b>{s.cls ? `Class ${s.cls} ` : ""}{s.name}</b> ({s.idea}). That may be the real gap, not those {s.because.length} chapters.
+              </p>
+              <Button size="sm" className="mt-3" disabled={busy} onClick={() => onStart(s.trace_chapter_id, null)}>
+                Check it in 2 minutes <ArrowRight size={14} />
+              </Button>
+            </div>
+          ))}
           {data.suggestions.length > 0 && (
             <div>
               <div className="caps mb-2 text-[11px] font-medium text-muted">From your weak spots</div>

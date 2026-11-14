@@ -13,7 +13,7 @@ import { cn, timeAgo } from "@/lib/utils";
 /* Edify Coach: the student's own study agent, on its own Maritime machine. It remembers them across weeks, writes a
    revision pack after each lecture, re-plans every night, and answers questions. Hidden when the server has no coach. */
 
-const KIND_ICON: Record<CoachPlanItem["kind"], typeof Target> = { root: GitBranch, revise: BookOpenCheck, weak: Target, mock: Timer, start: Sparkles };
+const KIND_ICON: Record<CoachPlanItem["kind"], typeof Target> = { root: GitBranch, root_check: GitBranch, revise: BookOpenCheck, weak: Target, mock: Timer, start: Sparkles };
 const failed = (fallback: string) => (e: unknown) => toast.error(e instanceof ApiError ? e.message : fallback);
 
 function PlanItem({ item, onDone, busy }: { item: CoachPlanItem; onDone?: () => void; busy?: boolean }) {
@@ -27,6 +27,9 @@ function PlanItem({ item, onDone, busy }: { item: CoachPlanItem; onDone?: () => 
       </span>
       {item.kind === "root" && item.trace_id && (
         <Link to={`/app/roots?trace=${item.trace_id}`}><Button size="sm" variant="primary">Fix it <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
+      )}
+      {item.kind === "root_check" && (
+        <Link to="/app/roots"><Button size="sm" variant="primary">Check it <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
       )}
       {onDone && (
         <Button size="sm" variant="secondary" onClick={onDone} loading={busy} aria-label={`Mark ${item.title} as revised`}>
