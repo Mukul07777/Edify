@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import DataError
 
 from app.api import api_router
 from app.core.config import INSECURE_DEFAULT_KEY, settings
@@ -176,6 +177,13 @@ def create_app() -> FastAPI:
             if ms > 1500:
                 log.info("%s %s %d %.0fms", request.method, request.url.path, response.status_code, ms)
         return response
+
+    @app.exception_handler(DataError)
+    async def unstorable(request: Request, exc: DataError):
+        # a value the database can't hold: an invisible NUL character in some text (Postgres refuses those), or an id
+        # far past any real one. The request is at fault, not the server: say so, instead of "something went wrong"
+        log.info("Refused a value the database can't store on %s %s: %s", request.method, request.url.path, exc.orig)
+        return JSONResponse(status_code=422, content={"detail": "Something in that request can't be used. Check it for unusual characters."})
 
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception):

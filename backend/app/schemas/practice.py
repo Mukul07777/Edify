@@ -66,8 +66,8 @@ class RedoItem(ORM):
 class CardIn(BaseModel):
     front: str = Field(min_length=1, max_length=500)
     back: str = Field(min_length=1, max_length=1000)
-    topic: str | None = None
-    subject: str | None = None
+    topic: str | None = Field(default=None, max_length=200)
+    subject: str | None = Field(default=None, max_length=60)
 
 
 class CardGenerate(BaseModel):

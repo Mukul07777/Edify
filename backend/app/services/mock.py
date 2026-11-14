@@ -9,7 +9,7 @@ import time
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -465,6 +465,14 @@ def _insights(total: dict, subjects: list[dict], qs: list[dict]) -> list[str]:
 
 def submit(db: Session, user: User, test: MockTest) -> MockTest:
     if test.status == "submitted":
+        return test
+    # claim it in the database first: of two submits at once, only one may grade it, or every answer would be
+    # counted twice in the student's analytics, redo queue and weak spots (the other waits on the row, then stops here)
+    claimed = db.execute(update(MockTest).where(MockTest.id == test.id, MockTest.status != "submitted")
+                         .values(status="submitted").execution_options(synchronize_session=False)).rowcount
+    if not claimed:
+        db.rollback()
+        db.refresh(test)
         return test
     result = grade(db, test)
     test.result, test.score, test.max_score = result, result["total"]["score"], result["total"]["max"]

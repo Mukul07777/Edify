@@ -178,3 +178,47 @@ def test_production_hides_the_api_map(monkeypatch):
     monkeypatch.setattr(settings, "ENV", "production")
     prod = create_app()
     assert prod.openapi_url is None and prod.docs_url is None
+
+
+def test_a_value_the_database_cannot_store_is_refused_not_a_crash(client, auth, monkeypatch):
+    """Postgres refuses NUL characters in text and ids past 2^31: that's a bad request (422), never a 500."""
+    from sqlalchemy.exc import DataError
+
+    from app.services import gaps
+
+    def unstorable(*args, **kwargs):
+        raise DataError("SELECT gap_traces", {}, Exception("integer out of range"))
+
+    monkeypatch.setattr(gaps, "owned", unstorable)
+    r = client.get("/api/gaps/9999999999", headers=auth)
+    assert r.status_code == 422 and "can't be used" in r.json()["detail"]
+
+
+def test_a_card_topic_and_subject_have_a_length_limit(client, auth):
+    assert client.post("/api/flashcards", headers=auth, json={"front": "q", "back": "a", "topic": "t" * 201}).status_code == 422
+    assert client.post("/api/flashcards", headers=auth, json={"front": "q", "back": "a", "subject": "s" * 61}).status_code == 422
+
+
+def test_a_mock_submitted_twice_at_once_is_graded_once(client, monkeypatch):
+    from sqlalchemy import select
+
+    from app.core.database import SessionLocal
+    from app.models.mock import MockTest
+    from app.models.user import User
+    from app.services import mock
+
+    r = client.post("/api/auth/register", json={"accepted_terms": True, "email": "double.submit@example.com", "full_name": "Double Submit",
+                                                "password": "correct-horse-1", "exam_target": "jee"})
+    uid = r.json()["user"]["id"]
+    with SessionLocal() as db:
+        db.add(MockTest(user_id=uid, title="Race mock", status="in_progress"))
+        db.commit()
+    with SessionLocal() as db:
+        test = db.scalar(select(MockTest).where(MockTest.user_id == uid))
+        user = db.get(User, uid)
+        assert test.status == "in_progress"
+        with SessionLocal() as other:  # the timer's submit (or a double tap) gets there first
+            other.get(MockTest, test.id).status = "submitted"
+            other.commit()
+        monkeypatch.setattr(mock, "grade", lambda *args: pytest.fail("graded a second time"))
+        assert mock.submit(db, user, test).status == "submitted"
