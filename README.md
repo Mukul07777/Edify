@@ -1,9 +1,63 @@
-# Edify
+# Edify: every lecture, understood
 
-A study platform that turns live lectures into clear notes for students.
+**Every student gets their own AI study coach: an agent that saw every lecture they watched, remembers what they keep
+getting wrong, and plans their next day while they sleep.**
 
-## Run locally
+Indian students spend lectures copying the board instead of understanding it. Edify reads the board with them, writes
+exam-ready notes as the teacher speaks (in English, Hindi or Hinglish), and quizzes them the moment the topic changes.
+Then **Edify Coach** takes over: one agent per student, running on [Maritime](https://maritime.sh).
 
-1. Install Python 3.12 and Node.js.
-2. Copy `.env.example` to `backend/.env` and fill in your keys.
-3. Double-click `run.bat`, then open http://localhost:8000
+## Edify Coach, on Maritime
+
+```mermaid
+flowchart LR
+    S([Student]) -->|watches a lecture| E[Edify<br/>board OCR + live notes]
+    E -->|lecture done| M
+    subgraph M[Maritime: one machine per student]
+        C1[Coach: Riya<br/>/data memory]
+        C2[Coach: Aman<br/>/data memory]
+        C3[Coach: ...]
+    end
+    T((Nightly schedule<br/>21:30 IST)) -->|wakes from sleep| M
+    M -->|revision pack, tomorrow's plan, answers| E
+    E --> S
+```
+
+| What the coach does | When |
+| --- | --- |
+| Writes a **revision pack**: key ideas, formulas, solved exam-style questions, tied to the student's weak spots | Every time a lecture ends |
+| **Re-plans the next day** from spaced revisions due (day 1, 3 and 7), open weak topics and the last mock test | Every night, when Maritime wakes it |
+| **Answers questions** with everything it remembers about that student | Any time |
+
+**How it uses Maritime** ([`backend/app/services/coach.py`](backend/app/services/coach.py)):
+
+- **One machine per student:** each student is a Maritime *end user* (`edify_<id>`) with their own agent, built from
+  [`agents/edify-coach`](agents/edify-coach), created exactly once.
+- **Memory that lasts:** the coach keeps each student's history under `/data`, which survives sleep, restarts and
+  redeploys, so it knows the student better every week.
+- **Sleeps, then wakes:** each machine is on the *smart* tier ($1 a month). It sleeps when idle and wakes for a chat or
+  for its nightly schedule (`GET /schedules`, plus a platform cron trigger).
+- **Guarded per student:** a Maritime policy (AI spend cap, wakes per hour, compute minutes) is in place before the
+  machine exists. Edify's own AI key never goes onto a coach machine.
+- **Watched as a fleet:** the admin panel reads Maritime's end-user summary: activity, messages and AI spend per student.
+
+**Status:** the integration is built and tested against Maritime's API (`api.maritime.sh/openapi.json`); the account
+and its end users are live. Maritime needs a card on the account before any machine starts, so until one is added
+`run.bat` runs the same coach on this computer, keeping each student's memory apart. Setting `MARITIME_COACH_REPO` in
+`backend/.env` moves every coach to Maritime.
+
+## The rest of Edify
+
+- **EdifyOCR**: our own model for lecture boards (chalk, marker, pen tablet, slides; Greek letters and maths symbols)
+- **Live notes and pop quizzes** over any lecture in a browser tab, or a photo of a classroom board
+- **Mock tests** in the real JEE / NEET / SSC pattern, with weak-chapter analysis
+- **Study rooms**, **mentors** who cleared the exam, flashcards with spaced repetition, last-day revision
+
+## Run it
+
+1. Install Python 3.12 and Node.js 20+.
+2. Copy `.env.example` to `backend/.env` and add a free `GROQ_API_KEY` for AI notes.
+3. Double-click `run.bat`. Edify opens at http://localhost:8000, with the coach alongside it.
+4. Sign up, then on the dashboard: **Turn on my coach**, then **Try it with a sample lecture**.
+
+Tests: `cd backend && python -m pytest` (430+ tests, including the coach end to end against a running agent).
