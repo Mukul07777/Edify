@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
@@ -85,7 +86,10 @@ def join(body: JoinIn, db: Session = Depends(get_db), user: User = Depends(get_c
         if (db.scalar(select(func.count(ClassMember.id)).where(ClassMember.user_id == user.id)) or 0) >= MAX_JOINED:
             raise HTTPException(status_code=409, detail=f"You can be in up to {MAX_JOINED} classes. Leave one first.")
         db.add(ClassMember(class_id=room.id, user_id=user.id))
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:  # the same student's other tap, a moment apart, got there first: they're in
+            db.rollback()
     teacher = db.get(User, room.owner_id)
     return {"id": room.id, "name": room.name, "teacher": teacher.full_name if teacher else "Your teacher"}
 

@@ -1,6 +1,8 @@
 """Classes (a teacher sees a class's progress) and the parent link (a parent sees one child's)."""
 from datetime import timedelta
 
+from sqlalchemy import func, select
+
 from app.core.database import SessionLocal
 from app.models._util import utcnow
 from app.models.mock import MockTest
@@ -90,3 +92,25 @@ def test_the_parent_link_shows_a_week_and_can_be_taken_back(client):
     assert client.get(f"/api/parent/view/{again}").status_code == 200
     assert client.delete("/api/parent/link", headers=kid).status_code == 204
     assert client.get(f"/api/parent/view/{again}").status_code == 404 and client.get("/api/parent/view/short").status_code == 404
+
+
+def test_two_taps_on_join_at_once_make_one_member_and_no_error(client, monkeypatch):
+    from app.api import classes as classes_api
+    from app.models.classroom import ClassMember
+
+    teacher, _ = _user(client, "race.teacher@example.com", "Race Teacher")
+    student, sid = _user(client, "race.student@example.com", "Race Student")
+    room = client.post("/api/classes", headers=teacher, json={"name": "Race batch"}).json()
+    real_count = classes_api._count
+
+    def other_tap_lands_first(db, class_id):  # the other tap's row arrives between this one's check and its insert
+        with SessionLocal() as other:
+            other.add(ClassMember(class_id=class_id, user_id=sid))
+            other.commit()
+        return real_count(db, class_id)
+
+    monkeypatch.setattr(classes_api, "_count", other_tap_lands_first)
+    r = client.post("/api/classes/join", headers=student, json={"code": room["code"]})
+    assert r.status_code == 200 and r.json()["name"] == "Race batch"
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count(ClassMember.id)).where(ClassMember.class_id == room["id"])) == 1
