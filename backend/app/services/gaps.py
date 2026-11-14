@@ -124,7 +124,27 @@ def _clean_check(raw: Any) -> dict[str, Any] | None:
     q = str(raw.get("q") or raw.get("question") or "").strip()
     if not q or len(options) != 4 or not 0 <= answer < 4:
         return None
-    return {"q": q, "options": options, "answer": answer, "explain": str(raw.get("explain") or "").strip()}
+    return agreeing({"q": q, "options": options, "answer": answer, "explain": str(raw.get("explain") or "").strip()})
+
+
+def _plain(text: str) -> str:
+    """A value written one way for comparing ("6π m." and "6π m" agree): letters, digits and maths signs only."""
+    return "".join(ch for ch in text.lower() if ch.isalnum() or ch in "/^-+·×√°%")
+
+
+def agreeing(check: dict[str, Any]) -> dict[str, Any]:
+    """The check with its answer matching its own working. The model sometimes marks one option while its working
+    lands on another ("C = 2πr = 2π·3 = 6π m" with 9π m marked right), and a student who knew it was told they were
+    wrong. The working is the one to trust; only a single exact match counts, anything less certain is left alone."""
+    explain = str(check.get("explain") or "")
+    if "=" not in explain:
+        return check
+    value = _plain(explain.rsplit("=", 1)[1])
+    hits = [i for i, option in enumerate(check["options"]) if value and _plain(option) == value]
+    if len(hits) == 1 and hits[0] != check["answer"]:
+        log.info("gap check answer corrected to match its working: %r", check["q"][:80])
+        return {**check, "answer": hits[0]}
+    return check
 
 
 def _ask_chain(syl: Syllabus | None, target: Chapter, topic_name: str | None) -> list[dict[str, Any]]:
@@ -160,7 +180,11 @@ def prereq_chain(db: Session, syl: Syllabus | None, target: Chapter, topic_id: s
     key = f"{target.id}#{topic_id}" if topic_id else target.id
     hit = db.get(PrereqMap, key)
     if hit and hit.chain:
-        return hit.chain, False
+        chain = [{**link, "check": agreeing(link["check"])} for link in hit.chain]
+        if chain != hit.chain:  # kept before answers were checked against their working: corrected once, for everyone
+            hit.chain = chain
+            db.commit()
+        return chain, False
     chain = _ask_chain(syl, target, topic_name)
     db.merge(PrereqMap(key=key, chain=chain))
     db.commit()
