@@ -11,9 +11,9 @@ import { cn } from "@/lib/utils";
    school chapters they really rest on, Class 6 on the left. Node size: how many exam chapters rest on it. A ring:
    real students whose trace ended there. The weights come only from real traces, so an empty map says so. */
 
+// fixed hues that read on both the light and the dark theme
 const SUBJECT_TONE: Record<string, string> = {
-  Physics: "var(--accent)", Mathematics: "var(--ok)", Chemistry: "var(--warn)",
-  Biology: "var(--accent-2)", Science: "var(--accent-3)",
+  Physics: "#3b74e0", Mathematics: "#23a26d", Chemistry: "#e0862b", Biology: "#d04f86", Science: "#8b66d6",
 };
 const tone = (s: string | null) => SUBJECT_TONE[s ?? ""] ?? "var(--muted)";
 const COL_W = 150, ROW_H = 38, PAD = 28;
@@ -46,7 +46,7 @@ function GenomeMap({ nodes, edges, focus, onFocus }: {
 
   const heads = ["Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "Exam chapter"];
   return (
-    <div className="overflow-x-auto">
+    <div className="max-w-full overflow-x-auto">
       <svg width={layout.w} height={layout.h} role="img" aria-label="Map of exam chapters and the school chapters they rest on"
         className="block" onClick={() => onFocus(null)}>
         {heads.map((h, i) => (
@@ -59,7 +59,7 @@ function GenomeMap({ nodes, edges, focus, onFocus }: {
           const on = !linked || (linked.has(e.from) && linked.has(e.to) && (e.from === focus || e.to === focus));
           const mx = (a.x + b.x) / 2;
           return <path key={e.from + e.to} d={`M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`} fill="none"
-            stroke={on ? "var(--fg-soft)" : "var(--line)"} strokeOpacity={on ? 0.5 : 0.6} strokeWidth={on ? 1 + e.weight : 1} />;
+            stroke={on ? "var(--fg-soft)" : "var(--line)"} strokeOpacity={focus ? (on ? 0.8 : 0.5) : 0.3} strokeWidth={on ? 1 + e.weight : 1} />;
         })}
         {nodes.map((n) => {
           const p = layout.pos.get(n.id)!;
@@ -89,7 +89,7 @@ export default function Genome() {
   const picked = focus ? data?.nodes.find((n) => n.id === focus) : null;
 
   return (
-    <div>
+    <div className="min-w-0">
       <PageHeader eyebrow="Root cause, for everyone" title="Gap Genome"
         subtitle="Every exam chapter Edify has traced, put together into one map of what it really rests on. The big nodes on the left are the school chapters that hold up the most of JEE and NEET." />
 
@@ -97,7 +97,7 @@ export default function Genome() {
         <Card><EmptyState icon={<Dna size={20} />} title="No chapters traced yet"
           body={<>Trace a chapter on <Link className="underline" to="/app/roots">Root cause</Link> and it appears here.</>} /></Card>
       ) : (
-        <div className="grid gap-5">
+        <div className="grid min-w-0 grid-cols-1 gap-5 [&>*]:min-w-0">
           <div className="grid gap-3 sm:grid-cols-3">
             <Stat label="Exam chapters mapped" value={data.exam_chapters} />
             <Stat label="School chapters they rest on" value={data.foundations} />
