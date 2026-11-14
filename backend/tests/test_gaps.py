@@ -112,3 +112,75 @@ def test_the_coach_plans_the_root_first(monkeypatch):
     plan = mod.review(mem, {"reason": "asked"})["plan"]
     assert plan["items"][0]["kind"] == "root" and "ratios as fractions" in plan["items"][0]["title"]
     assert "Class 7" in plan["items"][0]["why"]
+
+
+def _bank(n, chapter="Rotational Motion"):
+    from app.core.database import SessionLocal
+    from app.models.mock import BankQuestion
+
+    with SessionLocal() as db:
+        db.add_all([BankQuestion(exam="jee_main", subject="Physics", chapter=chapter, qtype="mcq", question=f"Bank question {i} on {chapter}?",
+                                 options=["w", "x", "y", "z"], answer=str(i % 4), solution="worked", verified=True, source="seed",
+                                 fingerprint=f"retest-{chapter}-{i}") for i in range(n)])
+        db.commit()
+
+
+def _retest_answers(trace_id, phase):
+    from app.core.database import SessionLocal
+    from app.models.gap import GapTrace
+
+    with SessionLocal() as db:
+        return [item["answer"] for item in db.get(GapTrace, trace_id).retest[phase]["items"]]
+
+
+def test_the_stuck_topic_before_and_after_the_fix(client, auth, monkeypatch, jee_rotation):
+    """Three bank questions on the stuck topic before the trace, three others after the fix: did fixing the root help?
+    No AI for these (the question bank), the answers stay on the server until given, and the "after" stays hidden
+    until the root is fixed."""
+    syl, target, kin, trig10, ratio7 = jee_rotation
+    _bank(8)
+
+    def fake_json(messages, **kw):
+        if kw.get("feature") == "gap_lesson":
+            return {"lesson_md": "Sine is opposite over hypotenuse.", "check": _q(2)}
+        return {"chain": [{"chapter_id": kin.id, "idea": "angular velocity", "why": "used directly", "check": _q(1)},
+                          {"chapter_id": trig10.id, "idea": "sin and cos", "why": "components", "check": _q(0)}]}
+
+    monkeypatch.setattr(gaps.llm, "json", fake_json)
+    monkeypatch.setattr(syllabus, "of", lambda user, whole=False: syl)
+    trace = client.post("/api/gaps", headers=auth, json={"chapter_id": target.id}).json()
+    before = trace["retest"]["before"]
+    assert before["total"] == 3 and all("answer" not in item for item in before["items"]) and before["right"] is None
+    assert trace["retest"]["after"] == {"items": [], "choices": None, "right": None, "total": 3}  # hidden until fixed
+
+    keys = _retest_answers(trace["id"], "before")
+    picks = [keys[0], (keys[1] + 1) % 4, None]  # one right, one wrong, one skipped
+    done = client.post(f"/api/gaps/{trace['id']}/answers", headers=auth, json={"answers": [1, 1], "before": picks}).json()
+    assert done["status"] == "found" and done["retest"]["before"]["right"] == 1 and "answer" in done["retest"]["before"]["items"][0]
+    assert client.post(f"/api/gaps/{trace['id']}/after", headers=auth, json={"answers": [0, 0, 0]}).status_code == 400  # not fixed yet
+
+    client.post(f"/api/gaps/{trace['id']}/lesson", headers=auth)
+    fixed = client.post(f"/api/gaps/{trace['id']}/check", headers=auth, json={"choice": 2}).json()
+    assert fixed["status"] == "fixed" and len(fixed["retest"]["after"]["items"]) == 3
+    assert all("answer" not in item for item in fixed["retest"]["after"]["items"])
+    after = client.post(f"/api/gaps/{trace['id']}/after", headers=auth, json={"answers": _retest_answers(trace["id"], "after")}).json()
+    assert after["retest"]["before"]["right"] == 1 and after["retest"]["after"]["right"] == 3
+    assert client.post(f"/api/gaps/{trace['id']}/after", headers=auth, json={"answers": [0, 0, 0]}).status_code == 400  # once
+
+    from app.core.database import SessionLocal
+    from app.models.gap import GapTrace
+
+    with SessionLocal() as db:
+        numbers = gaps.summarize([db.get(GapTrace, trace["id"])], started=1, chains=1, usd=0.0)
+    assert (numbers["retest_pairs"], numbers["retest_before"], numbers["retest_after"]) == (1, 33, 100)
+
+
+def test_a_short_bank_means_no_before_and_after_but_the_trace_works(client, auth, monkeypatch, jee_rotation):
+    syl, target, kin, *_ = jee_rotation
+    monkeypatch.setattr(gaps.llm, "json", lambda messages, **kw: {"chain": [{"chapter_id": kin.id, "idea": "v", "why": "w", "check": _q(1)}]})
+    monkeypatch.setattr(syllabus, "of", lambda user, whole=False: syl)
+    monkeypatch.setattr(gaps.question_bank, "pick", lambda *a, **k: ([], {}))
+    trace = client.post("/api/gaps", headers=auth, json={"chapter_id": target.id}).json()
+    assert trace["retest"] is None
+    answered = client.post(f"/api/gaps/{trace['id']}/answers", headers=auth, json={"answers": [1] * len(trace["chain"])}).json()
+    assert answered["status"] in ("found", "clear") and answered["retest"] is None  # (the chain may be shared from before)

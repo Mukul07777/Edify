@@ -30,9 +30,10 @@ from sqlalchemy.orm import Session
 from app.models._util import utcnow
 from app.models.gap import GapTrace, PrereqMap
 from app.models.llm_call import LlmCall
+from app.models.mock import BankQuestion
 from app.models.user import User
 from app.models.weak import WeakTopic
-from app.services import ai, syllabus
+from app.services import ai, question_bank, syllabus
 from app.services.llm import LLMUnavailable, llm
 from app.services.syllabus import Chapter, Syllabus
 
@@ -192,6 +193,41 @@ def prereq_chain(db: Session, syl: Syllabus | None, target: Chapter, topic_id: s
 
 
 # ---------------------------------------------------------------------------------------------------- a trace
+RETEST = 3  # questions on the stuck topic itself: asked before the trace, and three different ones after the fix
+
+
+def _bank_check(row: BankQuestion) -> dict[str, Any] | None:
+    """A bank question as a check, when it can be shown as one: four text options and no pictures."""
+    options = [str(o).strip() for o in row.options or []]
+    try:
+        right = int(row.answer)
+    except (TypeError, ValueError):
+        return None
+    if len(options) != 4 or not all(options) or not 0 <= right < 4 or row.media:
+        return None
+    return {"q": row.question, "options": options, "answer": right, "explain": (row.solution or "").strip()[:600]}
+
+
+def _retest(db: Session, user: User, target: Chapter) -> dict[str, Any] | None:
+    """Questions on the topic the student is stuck on, from the question bank (no AI): three before the trace and
+    three others after the fix, so the student and their teacher see whether fixing the root helped. None when the
+    bank doesn't have six it can show."""
+    rows, _ = question_bank.pick(db, target.subject, "mcq", 4 * RETEST, set(), chapters=[target.name], exam=user.exam_target)
+    items = [c for c in (_bank_check(r) for r in rows) if c][: 2 * RETEST]
+    if len(items) < 2 * RETEST:
+        return None
+    return {"before": {"items": items[:RETEST], "choices": None, "right": None},
+            "after": {"items": items[RETEST:], "choices": None, "right": None}}
+
+
+def _scored(retest: dict[str, Any], phase: str, choices: list[int | None]) -> dict[str, Any]:
+    part = retest[phase]
+    if len(choices) != len(part["items"]):
+        raise GapError("Answer every question (or skip it) first.")
+    right = sum(c == item["answer"] for c, item in zip(choices, part["items"]))
+    return {**retest, phase: {**part, "choices": list(choices), "right": right}}
+
+
 def start(db: Session, user: User, syl: Syllabus | None, chapter_id: str, topic_id: str | None) -> tuple[GapTrace, bool]:
     target = chapter(syl, chapter_id)
     if target is None:
@@ -201,6 +237,10 @@ def start(db: Session, user: User, syl: Syllabus | None, chapter_id: str, topic_
     trace = GapTrace(user_id=user.id, chapter_id=target.id, topic_id=topic.id if topic else None,
                      title=f"{topic.name} ({target.name})" if topic else target.name,
                      chain=[{**link, "result": None} for link in chain], status="checking")
+    try:
+        trace.retest = _retest(db, user, target)
+    except Exception:  # the before-and-after questions are a bonus: a bank problem never stops a trace
+        log.exception("no retest questions for %s", target.id)
     db.add(trace)
     db.commit()
     return trace, used_ai
@@ -213,13 +253,16 @@ def owned(db: Session, user: User, trace_id: int) -> GapTrace:
     return trace
 
 
-def answer(db: Session, trace: GapTrace, choices: list[int | None]) -> GapTrace:
-    """Mark each link; the root gap is the deepest link missed (fix the bottom and the ones above it can hold)."""
+def answer(db: Session, trace: GapTrace, choices: list[int | None], before: list[int | None] | None = None) -> GapTrace:
+    """Mark each link; the root gap is the deepest link missed (fix the bottom and the ones above it can hold).
+    ``before``: the answers to the questions on the stuck topic itself, the "before" of before-and-after."""
     if trace.status != "checking":
         raise GapError("These questions are already answered.")
     chain = [dict(link) for link in trace.chain or []]
     if len(choices) != len(chain):
         raise GapError("Answer every question (or skip it) first.")
+    if trace.retest and before is not None:
+        trace.retest = _scored(trace.retest, "before", before)
     for link, choice in zip(chain, choices):
         link["choice"] = choice
         link["result"] = "right" if choice == link["check"]["answer"] else "wrong"  # a skip counts as not known yet
@@ -286,6 +329,32 @@ def recheck(db: Session, trace: GapTrace, choice: int) -> GapTrace:
 
 
 # ---------------------------------------------------------------------------------------------------- what's shown
+def after(db: Session, trace: GapTrace, choices: list[int | None]) -> GapTrace:
+    """The stuck topic again, once its root gap is fixed: did fixing the root help?"""
+    if trace.status != "fixed" or not trace.retest:
+        raise GapError("Fix the root gap first.")
+    if trace.retest["after"]["right"] is not None:
+        raise GapError("These questions are already answered.")
+    trace.retest = _scored(trace.retest, "after", choices)
+    db.commit()
+    return trace
+
+
+def _retest_view(trace: GapTrace) -> dict[str, Any] | None:
+    """The before-and-after questions, their answers kept on the server until answered (the "after" ones stay hidden
+    until the root is fixed)."""
+    if not trace.retest:
+        return None
+    out = {}
+    for phase in ("before", "after"):
+        part = trace.retest[phase]
+        done = part["right"] is not None
+        shown = phase == "before" or trace.status == "fixed"
+        out[phase] = {"items": [item if done else {"q": item["q"], "options": item["options"]} for item in part["items"]] if shown else [],
+                      "choices": part["choices"], "right": part["right"], "total": len(part["items"])}
+    return out
+
+
 def view(trace: GapTrace) -> dict[str, Any]:
     """A trace for the app. While the questions are open, their answers stay on the server."""
     answered = trace.status != "checking"
@@ -300,7 +369,7 @@ def view(trace: GapTrace) -> dict[str, Any]:
         lesson_out = {"md": trace.lesson["md"], "result": trace.lesson.get("result"), "choice": trace.lesson.get("choice"),
                       "check": c if done else {"q": c["q"], "options": c["options"]}}
     return {"id": trace.id, "title": trace.title, "chapter_id": trace.chapter_id, "topic_id": trace.topic_id,
-            "status": trace.status, "root": trace.root, "chain": chain, "lesson": lesson_out,
+            "status": trace.status, "root": trace.root, "chain": chain, "lesson": lesson_out, "retest": _retest_view(trace),
             "created_at": trace.created_at.isoformat() + "Z" if trace.created_at else None}
 
 
@@ -401,12 +470,19 @@ def summarize(done: list[GapTrace], started: int, chains: int, usd: float) -> di
     def pct(part: int, whole: int) -> int | None:
         return round(100 * part / whole) if whole else None
 
+    # the stuck topic itself, before the trace and after the fix, for the students who did both
+    pairs = [t.retest for t in done if t.retest and t.retest["before"]["right"] is not None and t.retest["after"]["right"] is not None]
+
+    def score(phase: str) -> int | None:
+        return pct(sum(r[phase]["right"] for r in pairs), sum(len(r[phase]["items"]) for r in pairs))
+
     return {
         "students": students, "traces": len(done), "with_root": len(rooted), "root_rate": pct(len(rooted), len(done)),
         "root_classes": [{"cls": c, "traces": n} for c, n in classes.most_common(5)],
         "lessons": len(lessons), "fixed": len(fixed), "recheck_pass": pct(sum(t.lesson.get("result") == "right" for t in rechecked), len(rechecked)),
         "median_minutes_to_fix": round(median(minutes), 1) if minutes else None,
         "chains_built": chains, "reused": pct(max(0, started - chains), started),
+        "retest_pairs": len(pairs), "retest_before": score("before"), "retest_after": score("after"),
         "ai_usd": round(usd, 4), "ai_usd_per_student": round(usd / students, 4) if students else None,
     }
 

@@ -32,6 +32,9 @@ class GapTrace(Base):
     chain: Mapped[list | None] = mapped_column(JSON, default=list)  # the links, each with the student's "result"
     root: Mapped[int | None] = mapped_column(Integer, nullable=True)  # index into chain of the root gap
     lesson: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # questions on the stuck topic itself, from the question bank: three before the trace, three others after the fix,
+    # {"before": {"items": [check], "choices": [...] | None, "right": int | None}, "after": {...}}; None: the bank was short
+    retest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(10), default="checking")  # checking | found | clear | fixed
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)

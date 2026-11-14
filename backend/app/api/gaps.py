@@ -59,12 +59,13 @@ def get_trace(trace_id: int, db: Session = Depends(get_db), user: User = Depends
 
 class AnswersIn(BaseModel):
     answers: list[int | None] = Field(max_length=gaps.MAX_LINKS)
+    before: list[int | None] | None = Field(default=None, max_length=gaps.RETEST)  # the stuck topic's own questions
 
 
 @router.post("/{trace_id}/answers")
 def answers(trace_id: int, body: AnswersIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict[str, Any]:
     """Mark the checks; the deepest one missed is the root gap. The coach hears about it."""
-    trace = _run(gaps.answer, db, _run(gaps.owned, db, user, trace_id), body.answers)
+    trace = _run(gaps.answer, db, _run(gaps.owned, db, user, trace_id), body.answers, body.before)
     coach.gaps_changed(user.id)
     return gaps.view(trace)
 
@@ -79,6 +80,16 @@ def lesson(trace_id: int, db: Session = Depends(get_db), user: User = Depends(ge
     if used_ai:
         usage.charge(db, user, "gap_lesson")
     return gaps.view(trace)
+
+
+class AfterIn(BaseModel):
+    answers: list[int | None] = Field(max_length=gaps.RETEST)
+
+
+@router.post("/{trace_id}/after")
+def after(trace_id: int, body: AfterIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """The stuck topic again, after the fix: the "after" next to the "before"."""
+    return gaps.view(_run(gaps.after, db, _run(gaps.owned, db, user, trace_id), body.answers))
 
 
 class CheckIn(BaseModel):
