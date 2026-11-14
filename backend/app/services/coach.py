@@ -104,6 +104,16 @@ def _ensure_registered(db: Session, row: CoachAgent, user: User) -> None:
         log.info("student %s not registered on Maritime yet: %s", user.id, exc)
 
 
+def forget(user_id: int) -> None:
+    """A deleted account's Maritime end user (their name and limits) goes too. Best effort: never blocks the delete."""
+    if not settings.MARITIME_API_KEY:
+        return
+    try:
+        _maritime("DELETE", f"/api/v1/end-users/edify_{user_id}")
+    except CoachError as exc:
+        log.info("Maritime end user for student %s not deleted: %s", user_id, exc)
+
+
 def register_all(db: Session) -> dict[str, int]:
     """Every student with a coach who isn't on Maritime yet, registered now (for the admin panel's button)."""
     rows = db.scalars(select(CoachAgent).where(CoachAgent.maritime_user.is_(None))).all()

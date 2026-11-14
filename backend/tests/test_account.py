@@ -110,3 +110,25 @@ def test_deleting_an_account_takes_its_senior_posts(client):
         left = db.scalars(select(CampusPost)).all()
         assert all(p.user_id != uid for p in left)  # nothing of theirs
         assert [p.id for p in left if p.subject == "Data Structures"] == [kept]  # the other student's question stays
+
+
+def test_deleting_an_account_removes_its_maritime_end_user(client, monkeypatch):
+    """A student registered on Maritime (name and limits) is removed there too when they delete their account."""
+    import httpx
+
+    from app.core.config import settings
+    from app.core.database import SessionLocal
+    from app.models.coach import CoachAgent
+    from app.services import coach
+
+    calls = []
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(coach.httpx, "request", lambda method, url, **k: calls.append((method, url)) or httpx.Response(204, request=httpx.Request(method, url)))
+    r = client.post("/api/auth/register", json={"accepted_terms": True, "email": "maritime.leaver@example.com", "full_name": "Leaving Student",
+                                                "password": "correct-horse-1", "exam_target": "jee"})
+    h, uid = {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]["id"]
+    with SessionLocal() as db:
+        db.add(CoachAgent(user_id=uid, mode="local", status="ready", maritime_user=f"edify_{uid}"))
+        db.commit()
+    assert client.post("/api/auth/delete-account", headers=h, json={"password": "correct-horse-1", "confirm": "DELETE"}).status_code == 204
+    assert calls == [("DELETE", f"{settings.MARITIME_API_URL}/api/v1/end-users/edify_{uid}")]

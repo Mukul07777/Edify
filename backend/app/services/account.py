@@ -28,7 +28,7 @@ from app.models.session import StudySession
 from app.models.study_day import StudyDay
 from app.models.user import User
 from app.models.weak import OutsideTest, WeakTopic
-from app.services import live, storage
+from app.services import coach, live, storage
 
 
 def _iso(dt) -> str | None:
@@ -157,6 +157,9 @@ def delete_everything(db: Session, user: User) -> list[str]:
     db.execute(delete(StudyDay).where(StudyDay.user_id == uid))
     for path in db.scalars(select(CampusItem.file_path).where(CampusItem.user_id == user.id)):  # what they shared goes with them
         storage.delete(path)
+    on_maritime = db.get(CoachAgent, uid)
+    if on_maritime is not None and on_maritime.maritime_user:
+        coach.forget(uid)  # their Maritime end user too: name and limits
     # their "Ask a senior" posts: the answers under their questions first (each points at its question), then their own
     asked = list(db.scalars(select(CampusPost.id).where(CampusPost.user_id == uid)))
     if asked:
