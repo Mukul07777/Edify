@@ -105,13 +105,18 @@ def _ensure_registered(db: Session, row: CoachAgent, user: User) -> None:
 
 
 def forget(user_id: int) -> None:
-    """A deleted account's Maritime end user (their name and limits) goes too. Best effort: never blocks the delete."""
+    """A deleted account's Maritime end user goes too, or at least their name and details (a key without the "manage"
+    scope can't delete). Best effort: never blocks the delete."""
     if not settings.MARITIME_API_KEY:
         return
+    ext = f"edify_{user_id}"
     try:
-        _maritime("DELETE", f"/api/v1/end-users/edify_{user_id}")
-    except CoachError as exc:
-        log.info("Maritime end user for student %s not deleted: %s", user_id, exc)
+        _maritime("DELETE", f"/api/v1/end-users/{ext}")
+    except CoachError:
+        try:  # a key without Maritime's "manage" scope can't delete: the name and details are blanked instead
+            _maritime("PUT", f"/api/v1/end-users/{ext}", {"displayName": "Deleted student", "metadata": {}, "tags": ["edify", "deleted"]})
+        except CoachError as exc:
+            log.info("Maritime end user for student %s not removed: %s", user_id, exc)
 
 
 def register_all(db: Session) -> dict[str, int]:

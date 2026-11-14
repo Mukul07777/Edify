@@ -132,3 +132,24 @@ def test_deleting_an_account_removes_its_maritime_end_user(client, monkeypatch):
         db.commit()
     assert client.post("/api/auth/delete-account", headers=h, json={"password": "correct-horse-1", "confirm": "DELETE"}).status_code == 204
     assert calls == [("DELETE", f"{settings.MARITIME_API_URL}/api/v1/end-users/edify_{uid}")]
+
+
+def test_without_the_manage_scope_the_maritime_name_is_blanked_instead(monkeypatch):
+    """Edify's Maritime key may not be allowed to delete end users: then nothing personal is left there either."""
+    import httpx
+
+    from app.core.config import settings
+    from app.services import coach
+
+    calls = []
+
+    def fake(method, url, json=None, **k):  # noqa: A002 - httpx's own name
+        calls.append((method, json))
+        status = 403 if method == "DELETE" else 200
+        return httpx.Response(status, json={"detail": "This API key lacks the 'manage' scope"} if status == 403 else {}, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(coach.httpx, "request", fake)
+    coach.forget(42)
+    assert calls[0] == ("DELETE", None)
+    assert calls[1][0] == "PUT" and calls[1][1]["displayName"] == "Deleted student" and calls[1][1]["metadata"] == {}
