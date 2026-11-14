@@ -24,6 +24,13 @@ os.environ["RAZORPAY_KEY_ID"] = ""  # tests pay with the dev button, never throu
 os.environ["RAZORPAY_KEY_SECRET"] = ""
 os.environ["RAZORPAY_WEBHOOK_SECRET"] = ""
 os.environ["LLM_BASE_URL"] = "https://llm.invalid/v1"
+# never the real Maritime account (a test once registered test students on it) or Prune: tests that need them fake them
+os.environ["MARITIME_API_KEY"] = ""
+os.environ["MARITIME_API_URL"] = "https://maritime.invalid"
+os.environ["MARITIME_COACH_REPO"] = ""
+os.environ["MARITIME_COACH_URL"] = ""
+os.environ["COACH_LLM_API_KEY"] = ""
+os.environ["PRUNE_API_KEY"] = ""
 os.environ["SECRET_KEY"] = "test-secret-key-that-is-at-least-32-bytes-long"
 os.environ["DEV_FEATURES_LOCAL_ONLY"] = "false"  # the test client isn't a loopback address
 os.environ["LIVE_WRITE_BEHIND"] = "false"  # board notes written while the frame waits (one test turns it back on)
