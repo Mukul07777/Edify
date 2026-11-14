@@ -1105,7 +1105,7 @@ export interface WeakDraft {
 export interface WeakCheckResult { weak: boolean; cleared: boolean; percent: number; needed: number; enough_questions: boolean }
 
 /* ---------------------------------------------------------------- Edify Coach (each student's agent on Maritime) */
-export interface CoachPlanItem { kind: "revise" | "weak" | "mock" | "start"; title: string; why: string; minutes: number; lecture_id?: string }
+export interface CoachPlanItem { kind: "root" | "revise" | "weak" | "mock" | "start"; title: string; why: string; minutes: number; lecture_id?: string; trace_id?: number }
 export interface CoachPlan { for: string; made_at: string; items: CoachPlanItem[]; minutes: number; headline: string; nudges: string[]; source: "ai" | "offline" }
 export interface CoachPack {
   lecture_id: string; title: string; subject?: string | null; made_at: string; headline: string; key_points: string[]; formulas: string[];
@@ -1129,4 +1129,21 @@ export interface CoachFleet {
     users: { external_id: string; name: string | null; agents: number; agent_status: string[]; messages: number; ai_cents_30d: number; last_active: string | null; activity_14d: number[] }[];
   };
   maritime_error: string | null;
+}
+
+/* ---------------------------------------------------------------- Root-cause gap tracing */
+export interface GapCheck { q: string; options: string[]; answer?: number; explain?: string }
+export interface GapLink {
+  chapter_id: string; name: string; subject: string; cls: number | null; idea: string; why: string;
+  check: GapCheck; result: "right" | "wrong" | null; choice?: number | null;
+}
+export interface GapTrace {
+  id: number; title: string; chapter_id: string; topic_id: string | null; status: "checking" | "found" | "clear" | "fixed";
+  root: number | null; chain: GapLink[]; lesson: { md: string; check: GapCheck; result: "right" | "wrong" | null; choice?: number | null } | null;
+  created_at: string | null;
+}
+export interface GapOverview {
+  traces: GapTrace[]; fixed: number;
+  suggestions: { chapter_id: string; topic_id: string | null; subject: string; name: string; chapter: string; misses: number }[];
+  chapters: { id: string; subject: string; name: string; cls: number }[];
 }
