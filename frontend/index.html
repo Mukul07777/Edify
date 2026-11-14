@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Edify reads the board of any lecture, writes exam-ready notes, pops quizzes while you watch, runs full mock tests and lets you study with friends." />
+    <meta name="theme-color" content="#f4f3ef" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Edify" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Edify" />
+    <meta property="og:title" content="Edify — Every lecture, understood" />
+    <meta property="og:description" content="AI notes from any lecture board, pop quizzes, full mock tests and study rooms — made for India's students." />
+    <meta property="og:image" content="/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="/og.png" />
+    <title>Edify — Every lecture, understood</title>
+    <script>
+      try {
+        // Stone (light) is Edify's first look; Ink (dark) is for whoever switches to it (top right).
+        // The key is THEME_KEY in src/stores/theme.ts.
+        if (localStorage.getItem("focs-look-4") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#0e0e0d");
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      html { background: #f4f3ef; color: #121211; }
+      html[data-theme="dark"] { background: #0e0e0d; color: #f1efea; }
+      .boot { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 18px; align-items: center; justify-content: center; }
+      .boot-mark { width: 48px; height: 48px; background: currentColor; -webkit-mask: url(/logo-mark.png) center / contain no-repeat; mask: url(/logo-mark.png) center / contain no-repeat; }
+      .boot-bar { position: relative; width: 96px; height: 2px; overflow: hidden; background: color-mix(in srgb, currentColor 15%, transparent); }
+      .boot-bar::after { content: ""; position: absolute; inset: 0; width: 40%; background: currentColor; animation: boot 1.1s ease-in-out infinite; }
+      @keyframes boot { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) { .boot-bar::after { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- what a slow connection sees until the app has loaded -->
+      <div class="boot" role="status" aria-label="Loading Edify">
+        <span class="boot-mark" aria-hidden="true"></span>
+        <span class="boot-bar"></span>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

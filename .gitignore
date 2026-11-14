@@ -1,0 +1,18 @@
+# secrets and local data
+.env
+*.db
+*.db-shm
+*.db-wal
+backend/storage/
+
+# dependencies and builds
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+dist/
+*.tsbuildinfo
+.pytest_cache/
+
+# private notes (local only)
+NOTES.md

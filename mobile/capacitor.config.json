@@ -1,0 +1,21 @@
+{
+  "appId": "com.focs.app",
+  "appName": "Edify",
+  "webDir": "www",
+  "backgroundColor": "#06070f",
+  "server": {
+    "androidScheme": "http",
+    "hostname": "localhost",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ],
+    "errorPath": "unreachable.html"
+  },
+  "android": {
+    "backgroundColor": "#06070f",
+    "allowMixedContent": true,
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "appendUserAgent": "EdifyApp/1.4"
+}
