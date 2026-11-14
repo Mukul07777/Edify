@@ -413,6 +413,7 @@ def overview(db: Session, user: User, syl: Syllabus | None) -> dict[str, Any]:
                             "name": topic.name if topic else ch.name, "chapter": ch.name, "misses": w.misses})
     chapters = [{"id": c.id, "subject": c.subject, "name": c.name, "cls": c.cls} for c in (syl.chapters if syl else ())]
     return {"traces": [view(t) for t in traces], "suggestions": suggestions, "chapters": chapters,
+            "suspects": suspects(db, user.id, syl),
             "fixed": sum(t.status == "fixed" for t in traces)}
 
 
@@ -589,3 +590,46 @@ def genome(db: Session) -> dict[str, Any]:
         "nodes": list(nodes.values()),
         "edges": [{"from": a, "to": b, "weight": w} for (a, b), w in edges.items()],
     }
+
+
+# ---------------------------------------------------------------------------------------------------- silent tracing
+SUSPECT_MIN_CHAPTERS = 2  # one weak chapter could be anything; two resting on the same idea point at it
+SUSPECTS_SHOWN = 3
+
+
+def suspects(db: Session, user_id: int, syl: Syllabus | None) -> list[dict[str, Any]]:
+    """Root gaps Edify suspects before the student answers a single question, from what they already did: the open
+    weak spots (mock tests, uploaded results, blind spots) joined to the shared chains. When two or more weak exam
+    chapters rest on the same earlier chapter, that chapter is the likely root. No AI, no quiz: the trace that
+    follows only confirms it. Roots the student has already traced are left out."""
+    weak = db.scalars(select(WeakTopic).where(WeakTopic.user_id == user_id, WeakTopic.status == "open")).all()
+    misses: Counter[str] = Counter()
+    for w in weak:
+        misses[w.chapter_id] += w.misses or 1
+    if len(misses) < SUSPECT_MIN_CHAPTERS:
+        return []
+    chains = {k: v for k, v in db.execute(select(PrereqMap.key, PrereqMap.chain).where(PrereqMap.key.in_(list(misses)))).all() if v}
+    traced = db.scalars(select(GapTrace).where(GapTrace.user_id == user_id, GapTrace.status != "checking")).all()
+    done_roots = {t.chain[t.root]["chapter_id"] for t in traced if t.root is not None and t.chain and t.root < len(t.chain)}
+    cleared = {link["chapter_id"] for t in traced for link in (t.chain or []) if link.get("result") == "right"}
+
+    found: dict[str, dict[str, Any]] = {}
+    for exam_id, chain in chains.items():
+        for link in chain:
+            cid = link["chapter_id"]
+            if cid in done_roots or cid in cleared:
+                continue  # already shown to be the gap, or shown to hold
+            s = found.setdefault(cid, {"chapter_id": cid, "name": link["name"], "subject": link.get("subject"),
+                                       "cls": link.get("cls"), "idea": link.get("idea") or link["name"], "evidence": {}})
+            s["evidence"][exam_id] = misses[exam_id]
+    out = []
+    for s in found.values():
+        if len(s["evidence"]) < SUSPECT_MIN_CHAPTERS:
+            continue
+        ev = sorted(s["evidence"].items(), key=lambda kv: -kv[1])
+        names = [(chapter(syl, cid).name if chapter(syl, cid) else cid) for cid, _ in ev]
+        out.append({**{k: v for k, v in s.items() if k != "evidence"},
+                    "because": names, "misses": sum(n for _, n in ev),
+                    "trace_chapter_id": ev[0][0]})  # confirm it by tracing the weakest of them
+    out.sort(key=lambda s: (-len(s["because"]), -s["misses"], s["cls"] or 99))
+    return out[:SUSPECTS_SHOWN]
