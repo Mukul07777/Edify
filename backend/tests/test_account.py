@@ -57,3 +57,25 @@ def test_deleting_an_account_with_payments(client):
             else:
                 assert kept == 1 and user.email.endswith("@deleted.invalid") and user.full_name == "Deleted account" and not user.is_active
         assert client.post("/api/auth/login", json={"email": email, "password": "correct-horse-1"}).status_code == 401
+
+
+def test_deleting_an_account_takes_its_root_traces_and_coach(client):
+    """Root-cause traces and the coach's record point at the student: deleting the account must take them too (on
+    Postgres a trace left behind blocked the delete with a foreign-key error; SQLite here doesn't enforce it)."""
+    from sqlalchemy import select
+
+    from app.core.database import SessionLocal
+    from app.models.coach import CoachAgent
+    from app.models.gap import GapTrace
+
+    r = client.post("/api/auth/register", json={"accepted_terms": True, "email": "traced@example.com", "full_name": "Traced Student",
+                                                "password": "correct-horse-1", "exam_target": "jee"})
+    h, uid = {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]["id"]
+    with SessionLocal() as db:
+        db.add_all([GapTrace(user_id=uid, chapter_id="physics.rotational-motion", title="Rotational Motion", chain=[], status="clear"),
+                    CoachAgent(user_id=uid, mode="local", status="ready")])
+        db.commit()
+    assert client.post("/api/auth/delete-account", headers=h, json={"password": "correct-horse-1", "confirm": "DELETE"}).status_code == 204
+    with SessionLocal() as db:
+        assert db.scalar(select(GapTrace).where(GapTrace.user_id == uid)) is None
+        assert db.get(CoachAgent, uid) is None

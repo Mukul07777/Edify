@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.models.course import Course
 from app.models.doubt import Doubt
 from app.models.flashcard import Flashcard
+from app.models.gap import GapTrace
 from app.models.lecture import LectureSegment
 from app.models.llm_call import LlmCall
 from app.models._util import utcnow
@@ -18,6 +19,7 @@ from app.models.payment import Payment
 from app.models.mock import MockTest
 from app.models.campus import CampusItem
 from app.models.classroom import Classroom, ClassMember, ParentLink
+from app.models.coach import CoachAgent
 from app.models.prep import ChapterRevision, PlanCheck, PlanTask, StudyGoal, TopicProgress
 from app.models.quiz_attempt import QuizAttempt
 from app.models.resource import Resource
@@ -155,7 +157,8 @@ def delete_everything(db: Session, user: User) -> list[str]:
     db.execute(delete(StudyDay).where(StudyDay.user_id == uid))
     for path in db.scalars(select(CampusItem.file_path).where(CampusItem.user_id == user.id)):  # what they shared goes with them
         storage.delete(path)
-    for model in (StudyGoal, TopicProgress, ChapterRevision, PlanCheck, PlanTask, WeakTopic, OutsideTest, CampusItem, ClassMember, ParentLink):
+    for model in (StudyGoal, TopicProgress, ChapterRevision, PlanCheck, PlanTask, WeakTopic, OutsideTest, CampusItem, ClassMember, ParentLink,
+                  GapTrace, CoachAgent):  # (their root-cause traces and their coach's record too)
         db.execute(delete(model).where(model.user_id == uid))
     taught = list(db.scalars(select(Classroom.id).where(Classroom.owner_id == uid)))  # the classes they ran close with them
     if taught:
