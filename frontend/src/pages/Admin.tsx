@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { cn, examLabel, timeAgo } from "@/lib/utils";
 import { adminSignedIn, useAdmin } from "@/stores/admin";
 import { useTheme } from "@/stores/theme";
+import { CoachFleet } from "@/components/CoachFleet";
 import { MentorAdmin } from "@/components/MentorAdmin";
 
 /** ₹1,234 / −₹12 — never "₹-0" for an amount that rounds to zero */
@@ -67,7 +68,7 @@ export default function Admin() {
           <Button size="sm" variant="ghost" className="shrink-0" onClick={leave} aria-label="Sign out" icon={<LogOut className="h-3.5 w-3.5" />}><span className="hidden min-[400px]:inline">Sign out</span></Button>
         </div>
       </header>
-      <main className="space-y-5 px-4 py-6 sm:px-6"><Dashboard /><div className="mx-auto max-w-6xl"><MentorAdmin /></div></main>
+      <main className="space-y-5 px-4 py-6 sm:px-6"><Dashboard /><div className="mx-auto max-w-6xl"><CoachFleet /></div><div className="mx-auto max-w-6xl"><MentorAdmin /></div></main>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useAdmin } from "@/stores/admin";
 import { useAuth } from "@/stores/auth";
 import type {
-  CoachView,
+  CoachFleet, CoachView,
   MockOffer,
   CardStats, Checkpoint, Doubt, Evaluation, Flashcard, FrameResponse, Grade, Health, HealthDetails, ModelInfo, Note, OcrResult,
   Feeling, MockDetail, MockMeta, Warmup, MockResponse, MockSummary, Overview, PlansInfo, PriceSector, ProPass, Quiz, RedoItem, Room, SessionDetail, SessionEnd,
@@ -154,6 +154,7 @@ export const api = {
   coach: () => get<CoachView>("/coach"),
   coachEnable: () => post<CoachView>("/coach/enable"),
   coachRefresh: () => post<CoachView>("/coach/refresh"),
+  coachSample: () => post<CoachView>("/coach/sample"),
   coachAsk: (question: string) => post<{ answer: string }>("/coach/ask", { question }),
   coachRevised: (lecture_id: string) => post<CoachView>("/coach/revised", { lecture_id }),
   // weak spots: the result of a test taken anywhere, read and turned into a fix-it plan
@@ -444,6 +445,7 @@ export const api = {
   adminLogin: (username: string, password: string) =>
     request<{ token: string; username: string; expires_in: number }>("POST", "/admin/login", { username, password }, { admin: true }),
   adminOverview: () => request<AdminOverview>("GET", "/admin/overview", undefined, { admin: true }),
+  adminCoaches: () => request<CoachFleet>("GET", "/admin/coaches", undefined, { admin: true }),
   adminMentors: (status = "pending") => request<MentorApplication[]>("GET", `/admin/mentors?status=${status}`, undefined, { admin: true }),
   adminMentorProof: async (id: number) => URL.createObjectURL(await (await request<Response>("GET", `/admin/mentors/${id}/proof`, undefined, { admin: true, raw: true })).blob()),
   adminMentorReview: (id: number, approve: boolean, note = "") => request<{ id: number; status: string }>("POST", `/admin/mentors/${id}/review`, { approve, note }, { admin: true }),

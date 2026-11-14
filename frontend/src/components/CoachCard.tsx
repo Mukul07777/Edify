@@ -35,6 +35,8 @@ function PlanItem({ item, onDone, busy }: { item: CoachPlanItem; onDone?: () => 
 
 function Pack({ pack }: { pack: CoachPack }) {
   const [open, setOpen] = useState(false);
+  // a pack saved by an older coach, or an AI reply missing a field, still opens
+  const points = pack.key_points ?? [], formulas = pack.formulas ?? [], practice = pack.practice ?? [], again = pack.revise_on ?? [];
   return (
     <div className="rounded-xl border border-line">
       <button onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 p-3 text-left">
@@ -46,22 +48,22 @@ function Pack({ pack }: { pack: CoachPack }) {
       </button>
       {open && (
         <div className="space-y-3 border-t border-line p-3 text-[13.5px]">
-          <ul className="space-y-1.5">{pack.key_points.map((k) => <li key={k} className="flex gap-2"><span className="mt-[0.55em] h-1 w-1 shrink-0 rounded-full bg-fg" />{k}</li>)}</ul>
-          {pack.formulas.length > 0 && <div className="rounded-lg bg-bg-soft p-2.5 font-mono text-[12.5px]">{pack.formulas.join("   ·   ")}</div>}
+          <ul className="space-y-1.5">{points.map((k) => <li key={k} className="flex gap-2"><span className="mt-[0.55em] h-1 w-1 shrink-0 rounded-full bg-fg" />{k}</li>)}</ul>
+          {formulas.length > 0 && <div className="rounded-lg bg-bg-soft p-2.5 font-mono text-[12.5px]">{formulas.join("   ·   ")}</div>}
           {pack.link && <p className="text-muted">{pack.link}</p>}
-          {pack.practice.length > 0 && (
+          {practice.length > 0 && (
             <ol className="space-y-2">
-              {pack.practice.map((p, i) => (
+              {practice.map((p, i) => (
                 <li key={p.q}>
                   <details>
                     <summary className="cursor-pointer">{i + 1}. {p.q}</summary>
-                    <div className="mt-1 pl-4 text-muted"><Markdown>{p.answer}</Markdown></div>
+                    <div className="mt-1 pl-4 text-muted"><Markdown>{String(p.answer ?? "")}</Markdown></div>
                   </details>
                 </li>
               ))}
             </ol>
           )}
-          <p className="text-[12px] text-muted">Revise again on {pack.revise_on.map((d) => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short" })).join(", ")}</p>
+          {again.length > 0 && <p className="text-[12px] text-muted">Revise again on {again.map((d) => new Date(d).toLocaleDateString(undefined, { day: "numeric", month: "short" })).join(", ")}</p>}
         </div>
       )}
     </div>
@@ -75,6 +77,7 @@ export function CoachCard() {
   const enable = useMutation({ mutationFn: api.coachEnable, onSuccess: put, onError: failed("Couldn't start your coach") });
   const refresh = useMutation({ mutationFn: api.coachRefresh, onSuccess: put, onError: failed("Your coach couldn't plan right now") });
   const revised = useMutation({ mutationFn: api.coachRevised, onSuccess: put, onError: failed("Couldn't tell your coach") });
+  const sample = useMutation({ mutationFn: api.coachSample, onSuccess: put, onError: failed("Your coach couldn't take the sample lecture") });
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const ask = useMutation({
@@ -133,12 +136,12 @@ export function CoachCard() {
                 <p className="text-[15px] font-medium leading-snug">{plan.headline}</p>
               </div>
               <ul className="mt-4 space-y-2">
-                {plan.items.map((it) => (
+                {(plan.items ?? []).map((it) => (
                   <PlanItem key={it.title} item={it} busy={revised.isPending && revised.variables === it.lecture_id}
                     onDone={it.kind === "revise" && it.lecture_id && dueIds.has(it.lecture_id) ? () => revised.mutate(it.lecture_id!) : undefined} />
                 ))}
               </ul>
-              {plan.nudges.length > 0 && (
+              {(plan.nudges ?? []).length > 0 && (
                 <ul className="mt-4 space-y-1.5 text-[13px] text-fg-soft">
                   {plan.nudges.map((n) => <li key={n} className="flex gap-2"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red" />{n}</li>)}
                 </ul>
@@ -151,7 +154,14 @@ export function CoachCard() {
           <div>
             <div className="caps mb-2 text-[11px] font-medium text-muted">Revision packs</div>
             {packs.length ? <div className="space-y-2">{packs.slice(0, 3).map((p) => <Pack key={p.lecture_id} pack={p} />)}</div>
-              : <p className="text-[13px] text-muted">Finish a lecture and your coach writes its revision pack here.</p>}
+              : (
+                <div className="rounded-xl border border-dashed border-line-strong p-3">
+                  <p className="text-[13px] text-muted">Finish a lecture and your coach writes its revision pack here.</p>
+                  <Button size="sm" variant="secondary" className="mt-2.5" onClick={() => sample.mutate()} loading={sample.isPending}>
+                    <Sparkles className="h-3.5 w-3.5" /> Try it with a sample lecture
+                  </Button>
+                </div>
+              )}
           </div>
           <form onSubmit={submit}>
             <label htmlFor="coach-ask" className="caps mb-2 block text-[11px] font-medium text-muted">Ask your coach</label>

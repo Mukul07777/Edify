@@ -1119,3 +1119,14 @@ export interface CoachView {
   available: boolean; on_maritime: boolean; enabled: boolean; status: "starting" | "ready" | "failed" | null; error: string | null;
   state: CoachState; synced_at: string | null;
 }
+export interface CoachFleet {
+  mode: "maritime" | "local" | null; tier: string;
+  policy: { llm_spend_cap_cents_per_month: number; wakes_per_hour: number; compute_minutes_cap: number; idle_sleep_seconds: number };
+  coaches: { user_id: number; name: string; mode: string; agent_id: string | null; status: string; lectures: number; reviews: number; synced_at: string | null }[];
+  maritime: null | {
+    total: number; active_7d: number; messages: number;
+    days: { day: string; active: number; messages: number; ai_cents: number }[];
+    users: { external_id: string; name: string | null; agents: number; agent_status: string[]; messages: number; ai_cents_30d: number; last_active: string | null; activity_14d: number[] }[];
+  };
+  maritime_error: string | null;
+}
