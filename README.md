@@ -1,5 +1,7 @@
 # Edify: every lecture, understood
 
+![Edify in six screens: a weak topic traced to its real gap, the batch's gap map, the coach's plan, the confusion map, eight languages](docs/demo.gif)
+
 **Every student gets their own AI study coach: an agent that saw every lecture they watched, remembers what they keep
 getting wrong, and plans their next day while they sleep.**
 
@@ -48,6 +50,21 @@ and its end users are live. Maritime needs a card on the account before any mach
 `run.bat` runs the same coach on this computer, keeping each student's memory apart. Setting `MARITIME_COACH_REPO` in
 `backend/.env` moves every coach to Maritime.
 
+## Built during the hackathon
+
+Each of these is in the commit history as small, separate commits:
+
+| What | Where to see it |
+| --- | --- |
+| **Edify Coach**: one agent per student, with its own memory, a nightly re-plan and a spend policy on Maritime | Dashboard → Edify Coach; admin → Coach fleet |
+| **Root-cause tracing**: a weak topic traced back through earlier chapters to the real gap, then a five-minute fix and a re-check. A check's marked answer must agree with its own working | Root cause |
+| **Where a batch's gaps start**: every student's traces added up for the teacher, with what to teach first. Counts only, nobody named | Classes → a class |
+| **Next-class kit**: from the boards that lost a live class, a simpler explanation, an analogy, board lines and opener questions | A room's confusion map |
+| **Mother tongues**: Marathi, Bengali, Tamil, Telugu and Gujarati join Hindi and Hinglish, each checked to be in its own script | Settings → Explain things to me in |
+| **Measured, not estimated**: roots found, fixes that held, time to fix, chains reused and AI cost per student, from real students' traces (demo accounts never count) | Admin → Root-cause tracing, measured |
+
+`python backend/scripts/seed_demo.py` makes demo accounts with all of it ready to show (every name starts with "Demo").
+
 ## The rest of Edify
 
 - **EdifyOCR**: our own model for lecture boards (chalk, marker, pen tablet, slides; Greek letters and maths symbols)
@@ -62,4 +79,4 @@ and its end users are live. Maritime needs a card on the account before any mach
 3. Double-click `run.bat`. Edify opens at http://localhost:8000, with the coach alongside it.
 4. Sign up, then on the dashboard: **Turn on my coach**, then **Try it with a sample lecture**.
 
-Tests: `cd backend && python -m pytest` (430+ tests, including the coach end to end against a running agent).
+Tests: `cd backend && python -m pytest` (450+ tests, including the coach end to end against a running agent).
