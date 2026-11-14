@@ -256,6 +256,7 @@ def owned(db: Session, user: User, trace_id: int) -> GapTrace:
 def answer(db: Session, trace: GapTrace, choices: list[int | None], before: list[int | None] | None = None) -> GapTrace:
     """Mark each link; the root gap is the deepest link missed (fix the bottom and the ones above it can hold).
     ``before``: the answers to the questions on the stuck topic itself, the "before" of before-and-after."""
+    db.refresh(trace, with_for_update=True)  # two taps at once: the second waits, then sees the first one's answers
     if trace.status != "checking":
         raise GapError("These questions are already answered.")
     chain = [dict(link) for link in trace.chain or []]
@@ -337,10 +338,15 @@ def class_recap(db: Session, teacher: User, user_ids: list[int], root_chapter_id
 
 
 def recheck(db: Session, trace: GapTrace, choice: int) -> GapTrace:
+    db.refresh(trace, with_for_update=True)  # two taps at once: the second waits, then sees the first one's answers
     if not trace.lesson:
         raise GapError("Read the lesson first.")
+    if trace.status == "fixed":
+        raise GapError("This gap is already closed.")
     right = choice == trace.lesson["check"]["answer"]
-    trace.lesson = {**trace.lesson, "choice": choice, "result": "right" if right else "wrong"}
+    result = "right" if right else "wrong"
+    # the first try is the one that measures the lesson: a retry after "not yet" can be a guess among what's left
+    trace.lesson = {**trace.lesson, "choice": choice, "result": result, "first": trace.lesson.get("first") or result}
     if right:
         trace.status = "fixed"
     db.commit()
@@ -350,6 +356,7 @@ def recheck(db: Session, trace: GapTrace, choice: int) -> GapTrace:
 # ---------------------------------------------------------------------------------------------------- what's shown
 def after(db: Session, trace: GapTrace, choices: list[int | None]) -> GapTrace:
     """The stuck topic again, once its root gap is fixed: did fixing the root help?"""
+    db.refresh(trace, with_for_update=True)  # two taps at once: the second waits, then sees the first one's answers
     if trace.status != "fixed" or not trace.retest:
         raise GapError("Fix the root gap first.")
     if trace.retest["after"]["right"] is not None:
@@ -383,10 +390,10 @@ def view(trace: GapTrace) -> dict[str, Any]:
         chain.append({**{k: v for k, v in link.items() if k != "check"}, "check": check})
     lesson_out = None
     if trace.lesson:
-        done = trace.lesson.get("result") is not None
+        solved = trace.lesson.get("result") == "right"  # the answer only once they have it: after "not yet", they try again for real
         c = trace.lesson["check"]
         lesson_out = {"md": trace.lesson["md"], "result": trace.lesson.get("result"), "choice": trace.lesson.get("choice"),
-                      "check": c if done else {"q": c["q"], "options": c["options"]}}
+                      "check": c if solved else {"q": c["q"], "options": c["options"]}}
     return {"id": trace.id, "title": trace.title, "chapter_id": trace.chapter_id, "topic_id": trace.topic_id,
             "status": trace.status, "root": trace.root, "chain": chain, "lesson": lesson_out, "retest": _retest_view(trace),
             "created_at": trace.created_at.isoformat() + "Z" if trace.created_at else None}
@@ -498,7 +505,7 @@ def summarize(done: list[GapTrace], started: int, chains: int, usd: float) -> di
     return {
         "students": students, "traces": len(done), "with_root": len(rooted), "root_rate": pct(len(rooted), len(done)),
         "root_classes": [{"cls": c, "traces": n} for c, n in classes.most_common(5)],
-        "lessons": len(lessons), "fixed": len(fixed), "recheck_pass": pct(sum(t.lesson.get("result") == "right" for t in rechecked), len(rechecked)),
+        "lessons": len(lessons), "fixed": len(fixed), "recheck_pass": pct(sum(t.lesson.get("first", t.lesson.get("result")) == "right" for t in rechecked), len(rechecked)),
         "median_minutes_to_fix": round(median(minutes), 1) if minutes else None,
         "chains_built": chains, "reused": pct(max(0, started - chains), started),
         "retest_pairs": len(pairs), "retest_before": score("before"), "retest_after": score("after"),

@@ -35,7 +35,7 @@ function RootProofCard({ r, usdInr }: { r: RootProof; usdInr: number }) {
       `${r.retest_pairs} student${r.retest_pairs === 1 ? "" : "s"} answered both, 3 questions each`],
     ["Students who traced", String(r.students), `${r.traces} trace${r.traces === 1 ? "" : "s"} finished`],
     ["Found an earlier gap", show(r.root_rate), `${r.with_root} traces${r.root_classes.length ? ` · most often Class ${r.root_classes[0].cls}` : ""}`],
-    ["Fix held on the re-check", show(r.recheck_pass), `${r.fixed} fixed of ${r.lessons} lessons`],
+    ["Right on the first re-check", show(r.recheck_pass), `${r.fixed} fixed of ${r.lessons} lessons`],
     ["Time to fix (median)", show(r.median_minutes_to_fix, " min"), "trace start to a passed re-check"],
     ["Reused, no AI", show(r.reused), `${r.chains_built} chains built by AI, shared by every trace after`],
     ["AI cost per student", r.ai_usd_per_student === null ? "–" : `₹${(r.ai_usd_per_student * usdInr).toFixed(2)}`, "root tracing and fix lessons, list prices"],

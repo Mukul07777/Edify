@@ -63,8 +63,10 @@ def test_trace_diagnose_fix(client, auth, monkeypatch, jee_rotation):
     assert "How this unlocks" in fix["lesson"]["md"] and "answer" not in fix["lesson"]["check"]
     wrong = client.post(f"/api/gaps/{trace['id']}/check", headers=auth, json={"choice": 0}).json()
     assert wrong["status"] == "found" and wrong["lesson"]["result"] == "wrong"
+    assert "answer" not in wrong["lesson"]["check"]  # "not yet": the next try is a real one, not a copy of the answer
     fixed = client.post(f"/api/gaps/{trace['id']}/check", headers=auth, json={"choice": 2}).json()
-    assert fixed["status"] == "fixed"
+    assert fixed["status"] == "fixed" and fixed["lesson"]["check"]["answer"] == 2
+    assert client.post(f"/api/gaps/{trace['id']}/check", headers=auth, json={"choice": 1}).status_code == 400  # stays closed
     assert calls == ["gap_trace", "gap_lesson"]
 
     # the next student who traces the same chapter, and has the same gap, costs no AI at all

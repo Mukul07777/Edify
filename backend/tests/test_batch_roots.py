@@ -161,3 +161,13 @@ def test_teach_first_makes_the_batch_a_recap_from_the_shared_lesson(client, monk
     assert client.post(url, headers=teacher, json={"chapter_id": TRIG[0]}).json()["md"].startswith("साइन")
     assert client.post(url, headers=teacher, json={"chapter_id": TRIG[0]}).status_code == 200 and len(calls) == 1
     assert "Devanagari" in calls[0]
+
+
+def test_the_proof_counts_the_first_re_check_not_a_retry():
+    check = {"q": "?", "options": ["a", "b", "c", "d"], "answer": 0}
+    retried = _trace(1, "Rotational Motion", TRIG, status="fixed")
+    retried.lesson = {"md": "...", "check": check, "result": "right", "first": "wrong"}  # right only on the second try
+    first_time = _trace(2, "Laws of Motion", RATIOS, status="fixed")
+    first_time.lesson = {"md": "...", "check": check, "result": "right", "first": "right"}
+    figures = gaps.summarize([retried, first_time], started=2, chains=1, usd=0.0)
+    assert figures["fixed"] == 2 and figures["recheck_pass"] == 50

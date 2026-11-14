@@ -148,7 +148,7 @@ function Chain({ trace }: { trace: GapTrace }) {
               <div className="rounded-xl bg-bg-soft p-4 text-[14px] leading-relaxed"><Markdown>{trace.lesson.md}</Markdown></div>
               <div>
                 <div className="flex gap-2 text-[14px] font-medium"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0" /><Markdown>{trace.lesson.check.q}</Markdown></div>
-                <Options check={trace.lesson.check} value={trace.lesson.result ? trace.lesson.choice : pick}
+                <Options check={trace.lesson.check} value={pick ?? trace.lesson.choice}
                   locked={trace.lesson.result === "right"} onPick={setPick} />
                 {trace.status === "fixed" ? (
                   <p className="mt-3 flex items-center gap-2 text-[14px] font-medium text-ok"><Check className="h-4 w-4" /> Gap closed.{after ? "" : ` Go back to ${trace.title}: it should click now.`}</p>
