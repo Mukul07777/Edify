@@ -519,3 +519,73 @@ def shuffle_seed(trace: GapTrace) -> int:  # kept for a later option order per s
 
 __all__ = ["GapError", "LLMUnavailable", "answer", "candidates", "chapter", "lesson", "open_roots", "overview", "owned",
            "prereq_chain", "recheck", "start", "utcnow", "view"]
+
+
+# ---------------------------------------------------------------------------------------------------- the genome
+@cache
+def _exam_by_id() -> dict[str, Chapter]:
+    out: dict[str, Chapter] = {}
+    for exam in ("jee", "neet"):
+        try:
+            out.update({c.id: c for c in syllabus.get(exam).chapters})
+        except Exception:  # a missing syllabus file only shrinks the map
+            log.warning("genome: no %s syllabus", exam)
+    return out
+
+
+def genome(db: Session) -> dict[str, Any]:
+    """The Gap Genome: every shared chain put together into one map of what the exam chapters really rest on, and,
+    from real students' traces, where their trouble actually starts. The shape comes from the chains (one per
+    chapter, the same for everyone); the weights come only from real traces (never the seeded demo accounts).
+    Counts only: no student is named."""
+    exam, school = _exam_by_id(), _school_by_id()
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: dict[tuple[str, str], int] = {}
+    under: dict[str, set[str]] = {}  # chapter -> the exam chapters that rest on it
+
+    def node(cid: str, name: str, subject: str | None, cls: int | None, kind: str) -> dict[str, Any]:
+        return nodes.setdefault(cid, {"id": cid, "name": name, "subject": subject, "cls": cls, "kind": kind,
+                                      "underpins": 0, "roots": 0, "fixed": 0})
+
+    targets = 0
+    for key, chain in db.execute(select(PrereqMap.key, PrereqMap.chain)).all():
+        if key.startswith("lesson:") or not chain:
+            continue
+        target_id = key.split("#", 1)[0]
+        ch = exam.get(target_id) or school.get(target_id)
+        if ch is None:
+            continue
+        targets += 1
+        node(ch.id, ch.name, ch.subject, None, "exam")
+        prev = ch.id
+        for link in chain:
+            cid = link["chapter_id"]
+            node(cid, link["name"], link.get("subject"), link.get("cls"), "school" if link.get("cls") else "exam")
+            under.setdefault(cid, set()).add(ch.id)
+            edges[(prev, cid)] = edges.get((prev, cid), 0) + 1
+            prev = cid
+    for cid, tops in under.items():
+        nodes[cid]["underpins"] = len(tops)
+
+    real = select(User.id).where(User.email.not_like(f"{DEMO_PREFIX}%"))
+    traces = db.scalars(select(GapTrace).where(GapTrace.status != "checking", GapTrace.user_id.in_(real))).all()
+    students: set[int] = set()
+    rooted = 0
+    for t in traces:
+        students.add(t.user_id)
+        if t.root is None or not t.chain or t.root >= len(t.chain):
+            continue
+        link = t.chain[t.root]
+        n = nodes.get(link["chapter_id"]) or node(link["chapter_id"], link["name"], link.get("subject"), link.get("cls"), "school")
+        n["roots"] += 1
+        n["fixed"] += t.status == "fixed"
+        rooted += 1
+
+    foundations = sorted((n for n in nodes.values() if n["underpins"]), key=lambda n: (-n["underpins"], -n["roots"], n["cls"] or 99))
+    return {
+        "exam_chapters": targets, "foundations": len(foundations), "links": len(edges),
+        "students": len(students), "traces": len(traces), "rooted": rooted,
+        "top": foundations[:8],
+        "nodes": list(nodes.values()),
+        "edges": [{"from": a, "to": b, "weight": w} for (a, b), w in edges.items()],
+    }

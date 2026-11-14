@@ -33,6 +33,12 @@ def overview(db: Session = Depends(get_db), user: User = Depends(get_current_use
     return gaps.overview(db, user, _syl(user))
 
 
+@router.get("/genome")
+def genome(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> dict[str, Any]:
+    """The Gap Genome: what the exam chapters really rest on, and where real students' trouble starts (counts only)."""
+    return gaps.genome(db)
+
+
 class StartIn(BaseModel):
     chapter_id: str = Field(min_length=1, max_length=160)
     topic_id: str | None = Field(default=None, max_length=220)
