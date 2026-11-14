@@ -67,6 +67,19 @@ def _models(value: str) -> list[str]:
 CLAUDE_BASE_URL = "claude"  # sentinel: not a real endpoint, routes _call to the Anthropic SDK instead of httpx
 
 
+def _reply(data: dict) -> tuple[str, dict | None]:
+    """The answer text and token usage. OpenAI's shape ("choices"), or Gemini's own ("candidates"), which Prune
+    passes back as is when it routes to Gemini."""
+    if "choices" in data:
+        return data["choices"][0]["message"].get("content") or "", data.get("usage")
+    parts = data["candidates"][0].get("content", {}).get("parts") or []
+    text = "".join(part.get("text", "") for part in parts if not part.get("thought"))
+    meta = data.get("usageMetadata") or {}
+    usage = {"prompt_tokens": meta.get("promptTokenCount", 0), "completion_tokens": meta.get("candidatesTokenCount", 0),
+             "total_tokens": meta.get("totalTokenCount", 0)} if meta else None
+    return text, usage
+
+
 def providers() -> list[Provider]:
     chain: list[Provider] = []
     if settings.PRUNE_API_KEY:
@@ -252,13 +265,13 @@ class LLMClient:
                     # bad key / unknown model / etc. won't fix itself on retry
                     raise LLMUnavailable(f"{p.name} rejected the request ({r.status_code}): {detail}")
                 data = r.json()
-                content = data["choices"][0]["message"].get("content") or ""
+                content, usage = _reply(data)
                 if not content.strip():
                     raise LLMUnavailable(f"{p.name} returned an empty answer")
                 if r.headers.get("x-prune-cache-hit") == "true":
                     log.info("Prune cache hit for %s (%s): no provider call, no cost", feature, p.model)
                     return content.strip()
-                ledger.record(feature, p.model, data.get("usage"))
+                ledger.record(feature, p.model, usage)
                 return content.strip()
             except (httpx.HTTPError, KeyError, ValueError) as exc:
                 last_error = exc
@@ -274,11 +287,10 @@ class LLMClient:
         r = self.client.post(url, json=body, headers=headers)
         if r.status_code >= 400:
             raise LLMUnavailable(f"{p.name} rejected the request ({r.status_code}): {r.text[:300]}")
-        data = r.json()
-        content = data["choices"][0]["message"].get("content") or ""
+        content, usage = _reply(r.json())
         if not content.strip():
             raise LLMUnavailable(f"{p.name} returned an empty answer")
-        ledger.record(feature, p.model, data.get("usage"))
+        ledger.record(feature, p.model, usage)
         return content.strip()
 
     def chat(self, messages: list[dict[str, str]], *, max_tokens: int = 900, temperature: float = 0.3,

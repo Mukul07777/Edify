@@ -233,3 +233,14 @@ def test_a_shared_board_shows_the_vision_reading_not_the_ocr_text(client, fake_a
     assert _frame(client, a, _session(client, a), lines)["note"]["ocr_raw"] == read
     second = _frame(client, b, _session(client, b), lines)
     assert second["ai_source"] == "shared" and second["note"]["ocr_raw"] == read and len(fake_ai) == 1
+
+
+def test_a_gemini_shaped_reply_through_prune_is_read_like_any_other():
+    """Prune passes Gemini's own reply shape back as is: its text (not its hidden thoughts) and its token usage."""
+    from app.services.llm import _reply
+
+    gemini = {"candidates": [{"content": {"parts": [{"text": "thinking...", "thought": True}, {"text": "Prune works"}]}}],
+              "usageMetadata": {"promptTokenCount": 36, "candidatesTokenCount": 3, "totalTokenCount": 39}}
+    assert _reply(gemini) == ("Prune works", {"prompt_tokens": 36, "completion_tokens": 3, "total_tokens": 39})
+    openai = {"choices": [{"message": {"content": "hi"}}], "usage": {"prompt_tokens": 1}}
+    assert _reply(openai) == ("hi", {"prompt_tokens": 1})
