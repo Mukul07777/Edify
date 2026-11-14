@@ -7,7 +7,8 @@ Runs through the app itself (the real endpoints, in-process) on the database in 
     written in their language, revision sheet and flashcards made
   - a teacher's live class with its boards and a confusion map ("I'm lost" taps, wrong answers, doubts)
   - the teacher's batch with root-cause traces: two students stuck on Rotational Motion share the same earlier gap
-    (the root-gap map's "teach first"), and the JEE student's five-minute fix (in Hinglish) passed its re-check
+    (the root-gap map's "teach first"), and the JEE student's five-minute fix (in Hinglish) passed its re-check;
+    the classmate's coach is on, with their open root gap first in tomorrow's plan (when the coach is running)
   - a verified B.Tech senior, and an "Ask a senior" question with Edify's draft checked and a senior's answer accepted
 
 Every account is named "Demo …" with a demo.focs.*@example.com address, and every post starts with "[Demo]", so
@@ -150,6 +151,10 @@ def seed(client, password: str, reset: bool = False) -> dict:
                     right = db.get(GapTrace, trace_id).lesson["check"]["answer"]
                 client.post(f"/api/gaps/{trace_id}/check", headers=h[key], json={"choice": right}).raise_for_status()
     print(f"  class {batch['code']}: 3 students, {traced} traces; the root-gap map at /app/classes/{batch['id']}")
+    # the classmate's root gap is still open: their coach plans it first ("Fix the root: ..." on their dashboard)
+    coach = client.post("/api/coach/enable", headers=h["classmate"])
+    print("  the classmate's coach: " + ("on, planning the root gap first" if coach.status_code == 200 and coach.json().get("status") == "ready"
+                                         else f"not on ({coach.status_code}): start the coach (run.bat) and turn it on from the dashboard"))
 
     print("Ask a senior:")
     ratelimit.reset()
