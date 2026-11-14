@@ -17,7 +17,7 @@ from app.models.mentor import GroupSeat, GroupSession, MentorCall, MentorMessage
 from app.models.notification import Notification
 from app.models.payment import Payment
 from app.models.mock import MockTest
-from app.models.campus import CampusItem
+from app.models.campus import CampusItem, CampusPost
 from app.models.classroom import Classroom, ClassMember, ParentLink
 from app.models.coach import CoachAgent
 from app.models.prep import ChapterRevision, PlanCheck, PlanTask, StudyGoal, TopicProgress
@@ -157,6 +157,11 @@ def delete_everything(db: Session, user: User) -> list[str]:
     db.execute(delete(StudyDay).where(StudyDay.user_id == uid))
     for path in db.scalars(select(CampusItem.file_path).where(CampusItem.user_id == user.id)):  # what they shared goes with them
         storage.delete(path)
+    # their "Ask a senior" posts: the answers under their questions first (each points at its question), then their own
+    asked = list(db.scalars(select(CampusPost.id).where(CampusPost.user_id == uid)))
+    if asked:
+        db.execute(delete(CampusPost).where(CampusPost.parent_id.in_(asked)))
+    db.execute(delete(CampusPost).where(CampusPost.user_id == uid))
     for model in (StudyGoal, TopicProgress, ChapterRevision, PlanCheck, PlanTask, WeakTopic, OutsideTest, CampusItem, ClassMember, ParentLink,
                   GapTrace, CoachAgent):  # (their root-cause traces and their coach's record too)
         db.execute(delete(model).where(model.user_id == uid))

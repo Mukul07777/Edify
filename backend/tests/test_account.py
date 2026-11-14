@@ -79,3 +79,34 @@ def test_deleting_an_account_takes_its_root_traces_and_coach(client):
     with SessionLocal() as db:
         assert db.scalar(select(GapTrace).where(GapTrace.user_id == uid)) is None
         assert db.get(CoachAgent, uid) is None
+
+
+def test_deleting_an_account_takes_its_senior_posts(client):
+    """A question someone asked under "Ask a senior", the answers under it, and their own answers elsewhere go with
+    their account (on Postgres a post left behind blocked the delete)."""
+    from sqlalchemy import select
+
+    from app.core.database import SessionLocal
+    from app.models.campus import CampusPost
+
+    def register(email, name):
+        r = client.post("/api/auth/register", json={"accepted_terms": True, "email": email, "full_name": name,
+                                                    "password": "correct-horse-1", "exam_target": "college_cse"})
+        return {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]["id"]
+
+    h, uid = register("asker@example.com", "Asker Student")
+    _, other = register("helper@example.com", "Helper Senior")
+    with SessionLocal() as db:
+        theirs = CampusPost(user_id=uid, subject="Data Structures", kind="question", body="How do I revise trees?")
+        elsewhere = CampusPost(user_id=other, subject="Data Structures", kind="question", body="Graphs or DP first?")
+        db.add_all([theirs, elsewhere])
+        db.flush()
+        db.add_all([CampusPost(user_id=other, subject="Data Structures", kind="answer", parent_id=theirs.id, body="Draw them."),
+                    CampusPost(user_id=uid, subject="Data Structures", kind="answer", parent_id=elsewhere.id, body="Graphs.")])
+        db.commit()
+        kept = elsewhere.id
+    assert client.post("/api/auth/delete-account", headers=h, json={"password": "correct-horse-1", "confirm": "DELETE"}).status_code == 204
+    with SessionLocal() as db:
+        left = db.scalars(select(CampusPost)).all()
+        assert all(p.user_id != uid for p in left)  # nothing of theirs
+        assert [p.id for p in left if p.subject == "Data Structures"] == [kept]  # the other student's question stays
