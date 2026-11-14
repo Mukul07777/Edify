@@ -23,7 +23,7 @@ from app.models.note import Note
 from app.models.quiz_attempt import QuizAttempt
 from app.models.session import StudySession
 from app.models.user import User
-from app.services import ledger, pricing
+from app.services import coach, ledger, pricing
 
 log = logging.getLogger("edify.admin")
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -166,6 +166,12 @@ def overview(db: Session = Depends(get_db)) -> dict[str, Any]:
                    for d in days],
         "usage": usage,
     }
+
+
+@router.get("/coaches")
+def coaches(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Edify Coach across every student: their coach machines on Maritime, activity and AI spend, and the limits."""
+    return coach.fleet(db)
 
 
 @router.get("/users")

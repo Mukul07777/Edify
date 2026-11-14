@@ -41,6 +41,12 @@ def refresh(db: Session = Depends(get_db), user: User = Depends(get_current_user
     return _out(_call(coach.refresh, db, user))
 
 
+@router.post("/sample", dependencies=[Depends(limit("coach-sample", 4))])
+def sample(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """Give the coach a sample lecture to work on, for a first look before the student has finished one."""
+    return _out(_call(coach.sample, db, user))
+
+
 class AskIn(BaseModel):
     question: str = Field(min_length=2, max_length=1500)
 
