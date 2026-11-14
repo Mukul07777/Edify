@@ -1,7 +1,7 @@
 import { useAdmin } from "@/stores/admin";
 import { useAuth } from "@/stores/auth";
 import type {
-  CoachFleet, CoachView, GapOverview, GapTrace,
+  CoachFleet, CoachView, GapOverview, GapTrace, NextClassKit,
   MockOffer,
   CardStats, Checkpoint, Doubt, Evaluation, Flashcard, FrameResponse, Grade, Health, HealthDetails, ModelInfo, Note, OcrResult,
   Feeling, MockDetail, MockMeta, Warmup, MockResponse, MockSummary, Overview, PlansInfo, PriceSector, ProPass, Quiz, RedoItem, Room, SessionDetail, SessionEnd,
@@ -420,6 +420,7 @@ export const api = {
   /** one small task from the student's own material, while the AI works */
   waitTask: (topic: string, skip = "") => get<WaitTask>(`/wait/task${qs({ topic, skip })}`),
   roomReport: (code: string) => get<ConfusionReport>(`/rooms/${code}/report`),
+  nextClassKit: (code: string, note_id: number) => post<NextClassKit>(`/rooms/${code}/next-class-kit`, { note_id }),
   roomRecap: (code: string, noteId: number) => post<{ ok: boolean }>(`/rooms/${code}/recap`, { note_id: noteId }),
   roomAsk: (code: string, question: string, doubtId?: string) => post<{ ok: boolean }>(`/rooms/${code}/ask`, { question, doubt_id: doubtId }),
   roomNotes: (code: string) => get<Note[]>(`/rooms/${code}/notes`),

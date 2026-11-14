@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Hand, MapPinned, Sparkles, Target, Waves, XCircle } from "lucide-react";
+import { ArrowLeft, GitBranch, Hand, Lightbulb, MapPinned, NotebookPen, Sparkles, Target, Waves, XCircle } from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -7,9 +8,53 @@ import { PageHeader } from "@/components/common";
 import { Markdown } from "@/components/Markdown";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, CardHeader, EmptyState } from "@/components/ui/primitives";
+import type { NextClassKit } from "@/lib/types";
 import { api, ApiError } from "@/lib/api";
 import { displayStyle } from "@/lib/math";
 import { LETTERS } from "@/lib/utils";
+
+/** What to do next class about one board: read from the wrong options picked, the doubts and the "I'm lost" taps. */
+function KitPanel({ kit }: { kit: NextClassKit }) {
+  return (
+    <div className="mt-3 grid gap-4 rounded-2xl border border-line bg-bg-soft p-4 text-[13.5px] md:grid-cols-2">
+      <div className="space-y-3">
+        <div>
+          <div className="caps mb-1 text-[11px] font-medium text-muted">What's in their heads</div>
+          <Markdown className="font-medium">{kit.misconception}</Markdown>
+        </div>
+        <div>
+          <div className="caps mb-1 text-[11px] font-medium text-muted">Say it simpler</div>
+          <Markdown>{kit.simpler}</Markdown>
+        </div>
+        {kit.analogy && <div className="flex gap-2"><Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-warn" /><Markdown>{kit.analogy}</Markdown></div>}
+        {kit.root_idea && (
+          <p className="flex gap-2 text-muted"><GitBranch className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Probably missing underneath: <b className="text-fg">{kit.root_idea}</b>{kit.root_class ? ` (Class ${kit.root_class})` : ""}. A two-minute recap of it first will help.</span></p>
+        )}
+      </div>
+      <div className="space-y-3">
+        {kit.board_plan.length > 0 && (
+          <div>
+            <div className="caps mb-1 flex items-center gap-1.5 text-[11px] font-medium text-muted"><NotebookPen className="h-3.5 w-3.5" /> On the board</div>
+            <ol className="list-decimal space-y-1 rounded-xl bg-board p-3 pl-8 font-mono text-[12.5px] text-white/90 [&_*]:!text-white/90">
+              {kit.board_plan.map((line) => <li key={line}><Markdown className="inline [&_p]:inline">{line}</Markdown></li>)}
+            </ol>
+          </div>
+        )}
+        {kit.openers.map((q, i) => (
+          <div key={q.q}>
+            <div className="caps mb-1 text-[11px] font-medium text-muted">Open the class with {i ? "another" : "this"}</div>
+            <Markdown>{q.q}</Markdown>
+            <ul className="mt-1 grid grid-cols-2 gap-1 text-[12.5px]">
+              {q.options.map((o, j) => <li key={j} className={j === q.answer ? "font-semibold text-ok" : "text-muted"}>{LETTERS[j]}. <Markdown className="inline [&_p]:inline">{o}</Markdown></li>)}
+            </ul>
+          </div>
+        ))}
+        <p className="text-[12px] text-muted">From {kit.evidence.lost} "I'm lost" taps, {kit.evidence.wrong} wrong answers and {kit.evidence.doubts} doubts on this board.</p>
+      </div>
+    </div>
+  );
+}
 
 /** The host's confusion map: the boards of a room's lecture ranked by how many students they lost, from
     anonymous "I'm lost" taps, wrong pop-quiz answers and doubts. Counts only, never names. */
@@ -22,6 +67,8 @@ export default function RoomReport() {
   const fail = (e: unknown) => toast.error(e instanceof ApiError ? e.message : "That didn't work. Try again.");
   const recap = useMutation({ mutationFn: (noteId: number) => api.roomRecap(code, noteId), onSuccess: () => toast.success("Recap sent to the room"), onError: fail });
   const check = useMutation({ mutationFn: (noteId: number) => api.roomQuiz(code, 30, noteId), onSuccess: () => toast.success("Question sent to the room"), onError: fail });
+  const [kits, setKits] = useState<Record<number, NextClassKit>>({});
+  const kit = useMutation({ mutationFn: (noteId: number) => api.nextClassKit(code, noteId), onSuccess: (k, noteId) => setKits((m) => ({ ...m, [noteId]: k })), onError: fail });
 
   const back = (
     <Link to={data?.is_active ? `/app/rooms/${code}` : "/app/rooms"} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
@@ -67,7 +114,8 @@ export default function RoomReport() {
             <div className="divide-y divide-line">
               {data.boards.length === 0 && <p className="px-5 pb-5 text-sm text-muted">No board was on screen when these came in. Start "Take notes for the room" so each signal is pinned to a board.</p>}
               {data.boards.map((b, i) => (
-                <div key={b.note_id} className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center">
+                <div key={b.note_id} className="px-5 py-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-elev-2 text-sm font-semibold">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold">Board {b.number}: {b.topic}</div>
@@ -79,6 +127,11 @@ export default function RoomReport() {
                       {!!b.sure_wrong && <Badge tone="bad">{b.sure_wrong} confidently wrong</Badge>}
                     </div>
                   </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    {!kits[b.note_id] && (
+                      <Button size="sm" variant={data.is_active ? "secondary" : "primary"} loading={kit.isPending && kit.variables === b.note_id}
+                        onClick={() => kit.mutate(b.note_id)} icon={<NotebookPen className="h-3.5 w-3.5" />}>Next-class kit</Button>
+                    )}
                   {data.is_active && (
                     <div className="flex shrink-0 gap-2">
                       <Button size="sm" variant="primary" loading={recap.isPending && recap.variables === b.note_id} onClick={() => recap.mutate(b.note_id)}
@@ -87,6 +140,9 @@ export default function RoomReport() {
                         icon={<Target className="h-3.5 w-3.5" />}>Send a check</Button>
                     </div>
                   )}
+                  </div>
+                </div>
+                {kits[b.note_id] && <KitPanel kit={kits[b.note_id]} />}
                 </div>
               ))}
             </div>

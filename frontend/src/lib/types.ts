@@ -1147,3 +1147,9 @@ export interface GapOverview {
   suggestions: { chapter_id: string; topic_id: string | null; subject: string; name: string; chapter: string; misses: number }[];
   chapters: { id: string; subject: string; name: string; cls: number }[];
 }
+export interface NextClassKit {
+  topic: string; evidence: { lost: number; wrong: number; doubts: number };
+  misconception: string; simpler: string; analogy: string; board_plan: string[];
+  openers: { q: string; options: string[]; answer: number; explain: string }[];
+  root_idea: string; root_class: number | null;
+}
