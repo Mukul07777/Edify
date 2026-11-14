@@ -33,7 +33,7 @@ from app.models.mock import MockTest
 from app.models.session import StudySession
 from app.models.user import User
 from app.models.weak import WeakTopic
-from app.services import gaps
+from app.services import gaps, syllabus
 
 log = logging.getLogger("edify.coach")
 CHAT_TIMEOUT = 45.0  # a coach answers within Maritime's 30 s, plus waking from sleep
@@ -239,6 +239,7 @@ def snapshot(db: Session, user: User) -> dict[str, Any]:
         "mocks": [{"title": m.title, "score": m.score, "max_score": m.max_score, "submitted_at": m.submitted_at} for m in mocks],
         "sessions": [{"title": s.title, "subject": s.subject, "ended_at": s.ended_at} for s in sessions],
         "gaps": gaps.open_roots(db, user.id),  # root gaps found and not yet fixed: the coach plans these first
+        "suspects": gaps.suspects(db, user.id, syllabus.of(user, whole=True)),  # likely roots, from weak spots alone
     }
 
 
