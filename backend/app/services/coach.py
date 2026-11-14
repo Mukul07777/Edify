@@ -33,6 +33,7 @@ from app.models.mock import MockTest
 from app.models.session import StudySession
 from app.models.user import User
 from app.models.weak import WeakTopic
+from app.services import gaps
 
 log = logging.getLogger("edify.coach")
 CHAT_TIMEOUT = 45.0  # a coach answers within Maritime's 30 s, plus waking from sleep
@@ -186,6 +187,7 @@ def snapshot(db: Session, user: User) -> dict[str, Any]:
                   "note": (w.note or "")[:200]} for w in weak],
         "mocks": [{"title": m.title, "score": m.score, "max_score": m.max_score, "submitted_at": m.submitted_at} for m in mocks],
         "sessions": [{"title": s.title, "subject": s.subject, "ended_at": s.ended_at} for s in sessions],
+        "gaps": gaps.open_roots(db, user.id),  # root gaps found and not yet fixed: the coach plans these first
     }
 
 
@@ -334,6 +336,25 @@ def lecture_finished(user_id: int, session_id: int) -> None:
                 log.info("coach for user %s missed lecture %s: %s", user_id, session_id, exc)
 
     threading.Thread(target=run, name="edify-coach", daemon=True).start()
+
+
+def gaps_changed(user_id: int) -> None:
+    """A root gap was found or fixed: the coach's picture is brought up to date in the background."""
+    if mode() is None:
+        return
+
+    def run() -> None:
+        with SessionLocal() as db:
+            row, user = db.get(CoachAgent, user_id), db.get(User, user_id)
+            if row is None or user is None:
+                return
+            try:
+                _send(row, snapshot(db, user))
+                _keep(db, row, _send(row, {"type": "review", "reason": "gaps"}))
+            except CoachError as exc:
+                log.info("coach for user %s missed a gap update: %s", user_id, exc)
+
+    threading.Thread(target=run, name="edify-coach-gaps", daemon=True).start()
 
 
 def iso(value: datetime | None) -> str | None:
