@@ -982,6 +982,10 @@ export interface BatchRoot {
   students: number; fixed: number; share: number; stuck_on: string[];
 }
 export interface BatchRoots { traced: number; with_root: number; fixed: number; roots: BatchRoot[] }
+/** A ten-minute recap for the class of a gap several students share: the lesson they get, with its check question. */
+export interface ClassRecap {
+  chapter_id: string; name: string; cls: number | null; idea: string; stuck_on: string; students: number; md: string; check: GapCheck;
+}
 
 export interface ClassDashboard {
   id: number; name: string; code: string; students: ClassStudent[];

@@ -1,7 +1,7 @@
 import { useAdmin } from "@/stores/admin";
 import { useAuth } from "@/stores/auth";
 import type {
-  CoachFleet, Language, CoachView, GapOverview, GapTrace, NextClassKit,
+  CoachFleet, Language, CoachView, GapOverview, GapTrace, NextClassKit, ClassRecap,
   MockOffer,
   CardStats, Checkpoint, Doubt, Evaluation, Flashcard, FrameResponse, Grade, Health, HealthDetails, ModelInfo, Note, OcrResult,
   Feeling, MockDetail, MockMeta, Warmup, MockResponse, MockSummary, Overview, PlansInfo, PriceSector, ProPass, Quiz, RedoItem, Room, SessionDetail, SessionEnd,
@@ -375,6 +375,7 @@ export const api = {
   classes: () => get<ClassList>("/classes"),
   createClass: (name: string) => post<ClassRow>("/classes", { name }),
   joinClass: (code: string) => post<{ id: number; name: string; teacher: string }>("/classes/join", { code }),
+  classRecap: (id: number, chapterId: string) => post<ClassRecap>(`/classes/${id}/recap`, { chapter_id: chapterId }),
   classDashboard: (id: number) => get<ClassDashboard>(`/classes/${id}`),
   removeClass: (id: number) => del(`/classes/${id}`),
   removeClassStudent: (id: number, userId: number) => del(`/classes/${id}/students/${userId}`),
