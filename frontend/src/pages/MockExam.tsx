@@ -448,7 +448,7 @@ function Exam({ test }: { test: MockDetail }) {
 export default function MockExam() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { data: test, isLoading } = useQuery({ queryKey: ["mock", Number(id)], queryFn: () => api.mock(Number(id)), staleTime: 0 });
+  const { data: test, isLoading, error } = useQuery({ queryKey: ["mock", Number(id)], queryFn: () => api.mock(Number(id)), staleTime: 0 });
 
   useEffect(() => {
     if (!test) return;
@@ -457,6 +457,17 @@ export default function MockExam() {
     }
   }, [test, navigate]);
 
+  if (error && !test) {
+    return (
+      <div className="grid h-dvh place-items-center bg-bg px-4">
+        <div className="max-w-sm text-center">
+          <p className="text-[15px] font-semibold">Couldn't open this paper</p>
+          <p className="mt-1 text-sm text-muted">{error.message || "The link may be wrong, or the test was discarded."}</p>
+          <Button variant="primary" className="mt-4" onClick={() => navigate("/app/mock")}>Back to mock tests</Button>
+        </div>
+      </div>
+    );
+  }
   if (isLoading || !test || test.status !== "in_progress" || !test.questions?.length) {
     return (
       <div className="grid h-dvh place-items-center bg-bg">
