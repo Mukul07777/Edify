@@ -597,6 +597,13 @@ export interface AdminOverview {
   series: { day: string; signups: number; cost_inr: number }[];
   usage: { lectures: number; boards: number; questions_answered: number; doubts: number; mocks_taken: number;
     lectures_30d: number; rooms_live: number; people_in_rooms: number };
+  roots: RootProof;
+}
+/** Root-cause tracing for real students, from the app's own records (percentages are null until there is data). */
+export interface RootProof {
+  students: number; traces: number; with_root: number; root_rate: number | null; root_classes: { cls: number; traces: number }[];
+  lessons: number; fixed: number; recheck_pass: number | null; median_minutes_to_fix: number | null;
+  chains_built: number; reused: number | null; ai_usd: number; ai_usd_per_student: number | null;
 }
 export interface AdminUser extends Money {
   id: number; name: string; email: string; plan: string; exam: string | null; joined: string | null; last_seen: string | null; lectures: number;
