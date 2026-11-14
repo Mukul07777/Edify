@@ -4,7 +4,9 @@
 getting wrong, and plans their next day while they sleep.**
 
 Indian students spend lectures copying the board instead of understanding it. Edify reads the board with them, writes
-exam-ready notes as the teacher speaks (in English, Hindi or Hinglish), and quizzes them the moment the topic changes.
+exam-ready notes as the teacher speaks, and quizzes them the moment the topic changes. It explains in the language the
+student thinks in: English, Hinglish, Hindi, Marathi, Bengali, Tamil, Telugu or Gujarati, each in its own script, with
+every formula and number checked against the English.
 Then **Edify Coach** takes over: one agent per student, running on [Maritime](https://maritime.sh).
 
 ## Edify Coach, on Maritime
