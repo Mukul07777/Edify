@@ -21,13 +21,15 @@ import logging
 import random
 from collections import Counter
 from functools import cache
+from statistics import median
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models._util import utcnow
 from app.models.gap import GapTrace, PrereqMap
+from app.models.llm_call import LlmCall
 from app.models.user import User
 from app.models.weak import WeakTopic
 from app.services import ai, syllabus
@@ -343,6 +345,43 @@ def batch_roots(db: Session, user_ids: list[int]) -> dict[str, Any]:
         "share": round(100 * len(r["students"]) / len(rooted)), "stuck_on": [name for name, _ in r["stuck_on"].most_common(3)],
     } for r in ranked[:BATCH_ROOTS_SHOWN]])
     return out
+
+
+GAP_FEATURES = ("gap_trace", "gap_lesson")
+
+
+def proof(db: Session) -> dict[str, Any]:
+    """How root-cause tracing goes for real students, from the app's own records (never estimated): how often a trace
+    finds an earlier gap, how often the five-minute fix works on the re-check, how long fixing takes, how many traces
+    reused a chain another student's trace had already paid for, and what the AI behind it cost per student."""
+    started = db.scalar(select(func.count(GapTrace.id))) or 0
+    done = db.scalars(select(GapTrace).where(GapTrace.status != "checking")).all()
+    chains = db.scalar(select(func.count(PrereqMap.key))) or 0
+    usd = float(db.scalar(select(func.coalesce(func.sum(LlmCall.cost_usd), 0.0)).where(LlmCall.feature.in_(GAP_FEATURES))) or 0.0)
+    return summarize(list(done), started, chains, usd)
+
+
+def summarize(done: list[GapTrace], started: int, chains: int, usd: float) -> dict[str, Any]:
+    """proof()'s figures from the finished traces, the traces started, the chains the AI built and what it cost."""
+    rooted = [t for t in done if t.root is not None and t.chain and t.root < len(t.chain)]
+    lessons = [t for t in rooted if t.lesson]
+    rechecked = [t for t in lessons if t.lesson.get("result") is not None]
+    fixed = [t for t in rooted if t.status == "fixed"]
+    minutes = [(t.updated_at - t.created_at).total_seconds() / 60 for t in fixed if t.updated_at and t.created_at]
+    classes = Counter(t.chain[t.root].get("cls") for t in rooted if t.chain[t.root].get("cls"))
+    students = len({t.user_id for t in done})
+
+    def pct(part: int, whole: int) -> int | None:
+        return round(100 * part / whole) if whole else None
+
+    return {
+        "students": students, "traces": len(done), "with_root": len(rooted), "root_rate": pct(len(rooted), len(done)),
+        "root_classes": [{"cls": c, "traces": n} for c, n in classes.most_common(5)],
+        "lessons": len(lessons), "fixed": len(fixed), "recheck_pass": pct(sum(t.lesson.get("result") == "right" for t in rechecked), len(rechecked)),
+        "median_minutes_to_fix": round(median(minutes), 1) if minutes else None,
+        "chains_built": chains, "reused": pct(max(0, started - chains), started),
+        "ai_usd": round(usd, 4), "ai_usd_per_student": round(usd / students, 4) if students else None,
+    }
 
 
 def shuffle_seed(trace: GapTrace) -> int:  # kept for a later option order per student; the order is fixed for now

@@ -23,7 +23,7 @@ from app.models.note import Note
 from app.models.quiz_attempt import QuizAttempt
 from app.models.session import StudySession
 from app.models.user import User
-from app.services import coach, ledger, pricing
+from app.services import coach, gaps, ledger, pricing
 
 log = logging.getLogger("edify.admin")
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -165,6 +165,7 @@ def overview(db: Session = Depends(get_db)) -> dict[str, Any]:
         "series": [{"day": d, "signups": signups.get(d, 0), "cost_inr": round(cost_by_day.get(d, 0.0) * settings.USD_INR, 2)}
                    for d in days],
         "usage": usage,
+        "roots": gaps.proof(db),
     }
 
 

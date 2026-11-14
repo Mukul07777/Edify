@@ -68,3 +68,40 @@ def test_a_teacher_sees_where_the_batch_gaps_start(client):
 def test_an_empty_class_has_an_empty_map():
     with SessionLocal() as db:
         assert gaps.batch_roots(db, []) == {"traced": 0, "with_root": 0, "fixed": 0, "roots": []}
+
+
+def test_the_proof_numbers_come_from_real_traces(client):
+    """The pitch's numbers are the app's own records: roots found, fixes that held on the re-check, time to fix,
+    chains reused for free, and the AI cost per student. Nothing is estimated."""
+    from datetime import timedelta
+
+    from app.models._util import utcnow
+    from app.models.gap import PrereqMap
+    from app.models.llm_call import LlmCall
+
+    _, a = _user(client, "proof.a@example.com", "Proof A")
+    _, b = _user(client, "proof.b@example.com", "Proof B")
+    start = utcnow() - timedelta(minutes=10)
+    with SessionLocal() as db:
+        before = gaps.proof(db)
+        fixed = _trace(a, "Rotational Motion", TRIG, status="fixed")
+        fixed.lesson = {"md": "...", "check": {"q": "?", "options": ["a", "b"], "answer": 0}, "result": "right"}
+        fixed.created_at, fixed.updated_at = start, start + timedelta(minutes=6)
+        missed = _trace(b, "Laws of Motion", RATIOS)
+        missed.lesson = {"md": "...", "check": {"q": "?", "options": ["a", "b"], "answer": 0}, "result": "wrong"}
+        db.add_all([fixed, missed, _trace(b, "Projectile Motion", None),
+                    PrereqMap(key="proof.test.chain", chain=[]),
+                    LlmCall(user_id=a, feature="gap_trace", model="m", cost_usd=0.004),
+                    LlmCall(user_id=b, feature="gap_lesson", model="m", cost_usd=0.002),
+                    LlmCall(user_id=b, feature="doubt", model="m", cost_usd=1.0)])  # not a gap feature: not counted
+        db.commit()
+        after = gaps.proof(db)
+    assert after["students"] - before["students"] == 2 and after["traces"] - before["traces"] == 3
+    assert after["with_root"] - before["with_root"] == 2 and after["fixed"] - before["fixed"] == 1
+    assert after["chains_built"] - before["chains_built"] == 1
+    assert round(after["ai_usd"] - before["ai_usd"], 4) == 0.006
+    # the exact figures, from the same three traces alone: 2 of 3 found a root, 1 of 2 re-checks held, 6 minutes to fix
+    exact = gaps.summarize([fixed, missed, _trace(b, "Projectile Motion", None)], started=4, chains=1, usd=0.006)
+    assert exact["root_rate"] == 67 and exact["recheck_pass"] == 50 and exact["median_minutes_to_fix"] == 6.0
+    assert exact["reused"] == 75 and exact["ai_usd_per_student"] == 0.003  # 4 traces started, 1 chain built
+    assert sorted(c["cls"] for c in exact["root_classes"]) == [7, 10]
