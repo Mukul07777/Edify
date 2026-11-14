@@ -10,6 +10,8 @@ Runs through the app itself (the real endpoints, in-process) on the database in 
     (the root-gap map's "teach first"), and the JEE student's five-minute fix (in Hinglish) passed its re-check, taking
     Rotational Motion from 1 of 3 to 3 of 3;
     the classmate's coach is on, with their open root gap first in tomorrow's plan (when the coach is running)
+  - a mock test for the JEE student that lost marks in Current Electricity, Electrostatics and Magnetic Effects,
+    so the Root cause page opens with "Edify noticed": all three rest on Class 10 Electricity
   - a verified B.Tech senior, and an "Ask a senior" question with Edify's draft checked and a senior's answer accepted
 
 Every account is named "Demo …" with a demo.focs.*@example.com address, and every post starts with "[Demo]", so
@@ -165,6 +167,22 @@ def seed(client, password: str, reset: bool = False) -> dict:
     coach = client.post("/api/coach/enable", headers=h["classmate"])
     print("  the classmate's coach: " + ("on, planning the root gap first" if coach.status_code == 200 and coach.json().get("status") == "ready"
                                          else f"not on ({coach.status_code}): start the coach (run.bat) and turn it on from the dashboard"))
+
+    print("Silent tracing:")
+    from datetime import date
+
+    from app.services import gaps as gap_service, syllabus as syl_service, weak as weak_service
+    with SessionLocal() as db:  # a mock that lost marks in three chapters which all rest on Class 10 Electricity
+        user = db.scalar(select(User).where(User.email == email("student")))
+        syl = syl_service.get("jee")
+        weak_service.save_test(db, user.id, syl, title="[Demo] Minor Test 3 (Physics)", taken_on=date.today() - timedelta(days=2),
+                               score=118, max_score=300, subjects=[{"name": "Physics", "score": 22, "max": 100}], source="manual",
+                               weak=[{"chapter_id": "physics.current-electricity", "misses": 4, "note": "Kirchhoff loops and power"},
+                                     {"chapter_id": "physics.electrostatics", "misses": 3, "note": "Potential and capacitors"},
+                                     {"chapter_id": "physics.magnetic-effects-of-current-and-magnetism", "misses": 2, "note": "Field of a current loop"}])
+        sus = gap_service.suspects(db, user.id, syl)
+    print("  Edify noticed: " + (f"{', '.join(sus[0]['because'])} all rest on {sus[0]['name']}" if sus
+                                 else "nothing yet (run scripts/warm_chains.py first, so the chains exist)"))
 
     print("Ask a senior:")
     ratelimit.reset()
