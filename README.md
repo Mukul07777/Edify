@@ -2,54 +2,57 @@
 
 ![Edify in seven screens: a weak topic traced to its real gap, the topic before and after the fix, the batch's gap map and recap, the coach's plan, the confusion map, eight languages](docs/demo.gif)
 
-**Every student gets their own AI study coach: an agent that saw every lecture they watched, remembers what they keep
-getting wrong, and plans their next day while they sleep.**
+**A student failing Electrostatics is rarely missing Electrostatics. They're missing Class 10 Electricity, or Class 8
+ratios. Coaching re-teaches the symptom. Edify finds the cause, fixes it in five minutes, and proves it worked.**
 
-Indian students spend lectures copying the board instead of understanding it. Edify reads the board with them, writes
-exam-ready notes as the teacher speaks, and quizzes them the moment the topic changes. It explains in the language the
-student thinks in: English, Hinglish, Hindi, Marathi, Bengali, Tamil, Telugu or Gujarati, each in its own script, with
-every formula and number checked against the English.
-Then **Edify Coach** takes over: one agent per student, running on [Maritime](https://maritime.sh).
+Indian students spend lectures copying the board instead of understanding it, then fail chapters whose real gap is
+years behind them. Edify reads the board with them, writes exam-ready notes as the teacher speaks, and explains in the
+language the student thinks in: English, Hinglish, Hindi, Marathi, Bengali, Tamil, Telugu or Gujarati, with every
+formula and number checked against the English. Then it goes after the real gap.
 
-## Edify Coach, on Maritime
+## Root cause, end to end
 
 ```mermaid
 flowchart LR
-    S([Student]) -->|watches a lecture| E[Edify<br/>board OCR + live notes]
-    E -->|lecture done| M
-    subgraph M[Maritime: one machine per student]
-        C1[Coach: Riya<br/>/data memory]
-        C2[Coach: Aman<br/>/data memory]
-        C3[Coach: ...]
-    end
-    T((Nightly schedule<br/>21:30 IST)) -->|wakes from sleep| M
-    M -->|revision pack, tomorrow's plan, answers| E
-    E --> S
+    M[Mock test mistakes<br/>Current Electricity, Electrostatics,<br/>Magnetic Effects] -->|no quiz, no AI| N{{Edify noticed:<br/>all three rest on<br/>Class 10 Electricity}}
+    N -->|2-minute check| C[One question per earlier chapter<br/>deepest miss = root gap]
+    C -->|5-minute lesson<br/>in their language| F[Fixed, re-checked<br/>topic score before -> after]
+    F --> G[(Gap Genome<br/>every trace improves the map)]
+    F --> P[Coach puts it first<br/>in tomorrow's plan]
 ```
+
+1. **Silent tracing.** Edify reads the mistakes a student already made. When two or more weak chapters rest on the
+   same earlier chapter, that chapter is the likely root, found with no quiz and no AI
+   ([`gaps.suspects`](backend/app/services/gaps.py)).
+2. **Two-minute check.** One question per earlier chapter, going down through the classes (JEE/NEET → Class 10 →
+   Class 7). The deepest wrong answer is the root gap. Chapters come from the real syllabus only; invented chapters and
+   questions whose marked answer disagrees with their own working are dropped.
+3. **Five-minute fix.** A lesson on the root idea in the student's language, a fresh re-check, and three questions on
+   the stuck topic before and after, so the student sees what fixing the root changed.
+4. **Gap Genome.** Every chain joined into one map of what JEE and NEET really rest on, weighted by real students'
+   traces. Today it maps 23 exam chapters onto 41 school chapters. The load-bearing ones, like Class 10 Electricity
+   under three Physics chapters, are where one fix pays off several times.
+5. **Shared, so it gets cheaper.** A chapter's chain is built once and reused by every student after: the first trace
+   costs a few seconds of AI, every later one costs nothing. `python backend/scripts/warm_chains.py` builds the top
+   chapters ahead.
+
+## Edify Coach
+
+A personal coach for every student, with its own memory of their lectures, mistakes and root gaps
+([`agents/edify-coach`](agents/edify-coach)).
 
 | What the coach does | When |
 | --- | --- |
 | Writes a **revision pack**: key ideas, formulas, solved exam-style questions, tied to the student's weak spots | Every time a lecture ends |
-| **Re-plans the next day** from spaced revisions due (day 1, 3 and 7), open weak topics and the last mock test | Every night, when Maritime wakes it |
+| **Re-plans the next day**: a confirmed root gap first, else a 2-minute check on the likeliest suspected one, then spaced revisions (day 1, 3, 7), weak topics and the last mock | Every night at 21:30 IST |
 | **Answers questions** with everything it remembers about that student | Any time |
 
-**How it uses Maritime** ([`backend/app/services/coach.py`](backend/app/services/coach.py)):
+Each student's memory is kept apart, and each has an AI spend cap. `run.bat` runs the coach on this computer.
 
-- **One machine per student:** each student is a Maritime *end user* (`edify_<id>`) with their own agent, built from
-  [`agents/edify-coach`](agents/edify-coach), created exactly once.
-- **Memory that lasts:** the coach keeps each student's history under `/data`, which survives sleep, restarts and
-  redeploys, so it knows the student better every week.
-- **Sleeps, then wakes:** each machine is on the *smart* tier ($1 a month). It sleeps when idle and wakes for a chat or
-  for its nightly schedule (`GET /schedules`, plus a platform cron trigger).
-- **Guarded per student:** a Maritime policy (AI spend cap, wakes per hour, compute minutes) is in place before the
-  machine exists. Edify's own AI key never goes onto a coach machine.
-- **Watched as a fleet:** the admin panel reads Maritime's end-user summary: activity, messages and AI spend per student.
-
-**Status:** the integration is built and tested against Maritime's API (`api.maritime.sh/openapi.json`). Every student
-who turns their coach on is registered on Maritime straight away, as an end user with their own limits; deleting the
-account removes them there too. Maritime needs a card on the account before any machine starts, so until one is added
-`run.bat` runs the same coach on this computer, keeping each student's memory apart. Setting `MARITIME_COACH_REPO` in
-`backend/.env` moves every coach to Maritime.
+**Ready to scale:** the coach is also built to run as one sleeping cloud machine per student on
+[Maritime](https://maritime.sh), with per-student spend, wake and compute limits set before the machine exists and an
+admin fleet view ([`backend/app/services/coach.py`](backend/app/services/coach.py)). It is tested against Maritime's
+API; setting `MARITIME_COACH_REPO` in `backend/.env` moves every coach there.
 
 ## Built during the hackathon
 
@@ -57,7 +60,9 @@ Each of these is in the commit history as small, separate commits:
 
 | What | Where to see it |
 | --- | --- |
-| **Edify Coach**: one agent per student, with its own memory, a nightly re-plan, and the student registered on Maritime with their own limits from day one | Dashboard → Edify Coach; admin → Coach fleet |
+| **Silent tracing**: the likely root gap found from mock-test mistakes alone, before any quiz, with a one-tap check | Root cause → "Edify noticed" |
+| **Gap Genome**: every traced chapter joined into one map of what JEE and NEET rest on, weighted by real traces | Gap Genome |
+| **Edify Coach**: one agent per student, with its own memory and a nightly re-plan that puts the root gap first | Dashboard → Edify Coach |
 | **Root-cause tracing**: a weak topic traced back through earlier chapters to the real gap, then a five-minute fix and a re-check. A check's marked answer must agree with its own working | Root cause |
 | **Before and after**: three questions on the stuck topic before the trace and three others after the fix, from the question bank (no AI), so a student sees what fixing the root changed | Root cause → a fixed trace |
 | **Where a batch's gaps start**: every student's traces added up for the teacher, with what to teach first and a 10-minute recap for the board, reusing the lesson its students got. Counts only, nobody named | Classes → a class |
@@ -66,6 +71,11 @@ Each of these is in the commit history as small, separate commits:
 | **Measured, not estimated**: the stuck topic before → after the fix, roots found, fixes that held, time to fix, chains reused and AI cost per student, from real students' traces (demo accounts never count) | Admin → Root-cause tracing, measured |
 
 `python backend/scripts/seed_demo.py` makes demo accounts with all of it ready to show (every name starts with "Demo").
+
+**The 90-second demo** (after `warm_chains.py` and `seed_demo.py`, signed in as `demo.focs.student@example.com`):
+Root cause opens with *Edify noticed*: three Physics chapters from the last mock all rest on Class 10 Electricity →
+**Check it in 2 minutes** finds the gap → the five-minute fix in Hinglish → the trace shows the stuck topic before and
+after → Gap Genome shows where that chapter sits under the rest of JEE.
 
 ## The rest of Edify
 
