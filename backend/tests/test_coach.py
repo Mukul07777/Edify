@@ -105,6 +105,7 @@ def test_a_coach_on_this_pc(client, agent, monkeypatch):
 def test_each_student_gets_their_own_agent_on_maritime(client, agent, monkeypatch):
     mod, _ = agent
     calls: list[tuple[str, str, dict | None]] = []
+    uid_box: list[int] = [0]
 
     def fake(method, url, json=None, timeout=None, headers=None):  # noqa: A002 - httpx's own name
         path = url.removeprefix(settings.MARITIME_API_URL)
@@ -113,6 +114,11 @@ def test_each_student_gets_their_own_agent_on_maritime(client, agent, monkeypatc
         if path.endswith("/chat"):
             reply = mod.handle(json["message"], None)
             body = {"response": __import__("json").dumps(reply)}
+        elif path.startswith("/api/v1/end-users?"):
+            body = {"items": [{"externalId": f"edify_{uid_box[0]}", "displayName": "Ravi Kumar", "agentCount": 1,
+                               "agents": [{"status": "active"}], "messageCount": 3, "aiSpendCents30d": 2.5}]}
+        elif path.startswith("/api/v1/end-user-summary"):
+            body = {"totalUsers": 1, "activeUsers7d": 1, "messages": 3, "days": [{"day": "2026-11-14", "activeUsers": 1, "messages": 3}]}
         elif path.endswith("/agents") and method == "POST":
             body = {"id": "agt_123", "status": "deploying"}
         else:
@@ -125,19 +131,68 @@ def test_each_student_gets_their_own_agent_on_maritime(client, agent, monkeypatc
     monkeypatch.setattr(coach.httpx, "request", fake)
     h = _register(client, "ravi.maritime@example.com")
     uid = client.get("/api/auth/me", headers=h).json()["id"]
+    uid_box[0] = uid
 
     on = client.post("/api/coach/enable", headers=h).json()
     assert on["on_maritime"] and on["status"] == "ready"
     paths = [(m, p) for m, p, _ in calls]
     assert paths[0] == ("PUT", f"/api/v1/end-users/edify_{uid}")
-    assert paths[1] == ("POST", f"/api/v1/end-users/edify_{uid}/agents")
-    create = calls[1][2]
+    # the student's limits are in place before their machine exists
+    assert paths[1] == ("PUT", f"/api/v1/end-users/edify_{uid}/policy")
+    assert calls[1][2]["policy"]["llm_spend_cap_cents_per_month"] == settings.COACH_AI_CAP_CENTS
+    assert paths[2] == ("POST", f"/api/v1/end-users/edify_{uid}/agents")
+    create = calls[2][2]
     assert create["githubRepo"] == "https://github.com/edify/edify-coach" and create["healthCheckPath"] == "/health"
     assert create["tier"] == "smart"  # $1 a month a student, not always_on's $10
-    assert paths[2] == ("POST", "/api/agents/agt_123/triggers") and calls[2][2]["type"] == "cron"
+    # Edify's own LLM key never goes onto a coach machine: without a coach key, Maritime's LLM is used
+    assert create["useMaritimeLlm"] is True and create["initialEnvVars"] == []
+    assert settings.llm_api_key == "" or settings.llm_api_key not in __import__("json").dumps(calls)
+    assert paths[3] == ("POST", "/api/agents/agt_123/triggers") and calls[3][2]["type"] == "cron"
     assert ("POST", "/api/agents/agt_123/chat") in paths
 
     # turning it on again never makes a second machine
     calls.clear()
     client.post("/api/coach/enable", headers=h)
     assert not any(p.endswith("/agents") for _, p, _ in calls)
+
+
+def test_a_sample_lecture_and_the_admin_fleet_view(client, agent, monkeypatch):
+    _, url = agent
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "")
+    monkeypatch.setattr(settings, "MARITIME_COACH_URL", url)
+    h = _register(client, "judge.demo@example.com")
+    assert client.post("/api/coach/sample", headers=h).status_code == 503  # the coach has to be on first
+    client.post("/api/coach/enable", headers=h)
+    state = client.post("/api/coach/sample", headers=h).json()["state"]
+    assert state["packs"][0]["lecture_id"] == "sample"
+    assert any(i["kind"] == "revise" for i in state["plan"]["items"]) is False  # due tomorrow, not today
+    from app.core.security import hash_password
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
+    monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
+    token = client.post("/api/admin/login", json={"username": "admin@focs", "password": "panel-password-1"}).json()["token"]
+    fleet = client.get("/api/admin/coaches", headers={"Authorization": f"Bearer {token}"}).json()
+    assert fleet["mode"] == "local" and any(c["lectures"] >= 1 for c in fleet["coaches"])
+    assert fleet["policy"]["wakes_per_hour"] == settings.COACH_WAKES_PER_HOUR
+    assert client.get("/api/admin/coaches", headers=h).status_code == 401  # a student never sees it
+
+
+def test_the_fleet_view_reads_maritime(monkeypatch):
+    """The admin fleet reads Maritime's end-user summary and list (the shapes of api.maritime.sh/openapi.json)."""
+    seen = []
+
+    def fake(method, url, json=None, timeout=None, headers=None):  # noqa: A002
+        path = url.removeprefix(settings.MARITIME_API_URL)
+        seen.append(path)
+        body = ({"totalUsers": 2, "activeUsers7d": 1, "messages": 9, "days": [{"day": "2026-11-14", "activeUsers": 1, "messages": 9, "aiCents": 4.0}]}
+                if path.startswith("/api/v1/end-user-summary") else
+                {"items": [{"externalId": "edify_7", "displayName": "Asha", "agentCount": 1, "agents": [{"status": "sleeping"}],
+                            "messageCount": 9, "aiSpendCents30d": 4.0, "lastActiveAt": "2026-11-14T10:00:00Z", "activity14d": [0, 9]}]})
+        return httpx.Response(200, json=body, request=httpx.Request(method, url))
+
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(coach.httpx, "request", fake)
+    from app.core.database import SessionLocal
+    with SessionLocal() as db:
+        m = coach.fleet(db)["maritime"]
+    assert m["total"] == 2 and m["users"][0]["agent_status"] == ["sleeping"] and m["days"][0]["ai_cents"] == 4.0
+    assert any("externalIdPrefix=edify_" in p for p in seen)
