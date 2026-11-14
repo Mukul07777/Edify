@@ -222,3 +222,17 @@ def test_a_mock_submitted_twice_at_once_is_graded_once(client, monkeypatch):
             other.commit()
         monkeypatch.setattr(mock, "grade", lambda *args: pytest.fail("graded a second time"))
         assert mock.submit(db, user, test).status == "submitted"
+
+
+def test_a_lost_database_connection_is_a_clear_503(client, auth, monkeypatch):
+    """The internet dropping mid-demo: say what happened (and let the app retry), not "something went wrong"."""
+    from sqlalchemy.exc import OperationalError
+
+    from app.services import gaps
+
+    def offline(*args, **kwargs):
+        raise OperationalError("SELECT 1", {}, Exception("failed to resolve host 'db.example': getaddrinfo failed"))
+
+    monkeypatch.setattr(gaps, "overview", offline)
+    r = client.get("/api/gaps", headers=auth)
+    assert r.status_code == 503 and "internet" in r.json()["detail"] and r.headers["retry-after"] == "5"

@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, OperationalError
 
 from app.api import api_router
 from app.core.config import INSECURE_DEFAULT_KEY, settings
@@ -70,8 +70,18 @@ async def lifespan(_: FastAPI):
     if copied:
         _upload_existing_snapshots()
     storage.ensure_bucket()
-    backfill_legacy()
-    _load_question_bank()
+    # Both only top up what an earlier start already saved: a dropped connection here (it happens on a weak
+    # network) is retried, then Edify starts anyway instead of not starting at all.
+    for step in (backfill_legacy, _load_question_bank):
+        for attempt in range(1, 4):
+            try:
+                step()
+                break
+            except Exception as exc:  # noqa: BLE001
+                if attempt == 3:
+                    log.warning("Start-up step %s skipped after 3 tries: %s", step.__name__, exc)
+                else:
+                    time.sleep(3)
     if settings.BACKGROUND_PRIORITY and not settings.is_production:
         _below_normal_priority()
     # Load OCR models (and read one line) in the background so the first captured frame isn't slow.
@@ -184,6 +194,14 @@ def create_app() -> FastAPI:
         # far past any real one. The request is at fault, not the server: say so, instead of "something went wrong"
         log.info("Refused a value the database can't store on %s %s: %s", request.method, request.url.path, exc.orig)
         return JSONResponse(status_code=422, content={"detail": "Something in that request can't be used. Check it for unusual characters."})
+
+    @app.exception_handler(OperationalError)
+    async def unreachable(request: Request, exc: OperationalError):
+        # the database can't be reached (the internet dropped, or the pooler blinked): not a bug in the request, and
+        # worth trying again in a moment, which the app does by itself for a 503
+        log.warning("Database unreachable on %s %s: %s", request.method, request.url.path, str(exc.orig).splitlines()[0][:160])
+        return JSONResponse(status_code=503, content={"detail": "Can't reach Edify's database right now. Check your internet; trying again…"},
+                            headers={"Retry-After": "5"})
 
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception):
