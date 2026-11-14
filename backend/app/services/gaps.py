@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import random
+from collections import Counter
 from functools import cache
 from typing import Any
 
@@ -304,6 +305,43 @@ def open_roots(db: Session, user_id: int) -> list[dict[str, Any]]:
             continue
         link = t.chain[t.root]
         out.append({"stuck_on": t.title, "root": link["idea"], "chapter": link["name"], "cls": link.get("cls"), "trace_id": t.id})
+    return out
+
+
+BATCH_ROOTS_SHOWN = 6
+
+
+def batch_roots(db: Session, user_ids: list[int]) -> dict[str, Any]:
+    """Where a whole class's trouble really starts: every member's traced root gaps, added up by the earlier chapter
+    they lead to. "Rotational Motion is weak" tells a teacher what to re-teach; "five of the eight students stuck on
+    it are missing Class 10 trigonometry" tells them what to teach first. Counts only: no student is named."""
+    out: dict[str, Any] = {"traced": 0, "with_root": 0, "fixed": 0, "roots": []}
+    if not user_ids:
+        return out
+    traces = db.scalars(select(GapTrace).where(GapTrace.user_id.in_(user_ids), GapTrace.status != "checking")).all()
+    roots: dict[str, dict[str, Any]] = {}
+    traced, rooted, fixed = set(), set(), set()
+    for t in traces:
+        traced.add(t.user_id)
+        if t.root is None or not t.chain or t.root >= len(t.chain):
+            continue
+        link = t.chain[t.root]
+        rooted.add(t.user_id)
+        r = roots.setdefault(link["chapter_id"], {"chapter_id": link["chapter_id"], "name": link["name"], "subject": link.get("subject"),
+                                                  "cls": link.get("cls"), "ideas": Counter(), "students": set(), "fixed": set(),
+                                                  "stuck_on": Counter()})
+        r["ideas"][link["idea"]] += 1
+        r["students"].add(t.user_id)
+        r["stuck_on"][t.title] += 1
+        if t.status == "fixed":
+            r["fixed"].add(t.user_id)
+            fixed.add(t.user_id)
+    ranked = sorted(roots.values(), key=lambda r: (-len(r["students"]), r["cls"] or 99, r["name"]))
+    out.update(traced=len(traced), with_root=len(rooted), fixed=len(fixed), roots=[{
+        "chapter_id": r["chapter_id"], "name": r["name"], "subject": r["subject"], "cls": r["cls"],
+        "idea": r["ideas"].most_common(1)[0][0], "students": len(r["students"]), "fixed": len(r["fixed"]),
+        "share": round(100 * len(r["students"]) / len(rooted)), "stuck_on": [name for name, _ in r["stuck_on"].most_common(3)],
+    } for r in ranked[:BATCH_ROOTS_SHOWN]])
     return out
 
 
