@@ -116,3 +116,48 @@ def test_demo_accounts_never_count_in_the_proof(client):
         db.commit()
         after = gaps.proof(db)
     assert after == before
+
+
+def test_teach_first_makes_the_batch_a_recap_from_the_shared_lesson(client, monkeypatch):
+    """The class page's "teach first" button: the lesson on the batch's shared gap, in the teacher's language, with its
+    check question and answer. A lesson students already got costs nothing; otherwise the AI writes it once."""
+    from app.models.gap import PrereqMap
+
+    teacher, _ = _user(client, "recap.teacher@example.com", "Recap Teacher")
+    room = client.post("/api/classes", headers=teacher, json={"name": "Recap batch"}).json()
+    ids = []
+    for i in range(2):
+        h, uid = _user(client, f"recap.student{i}@example.com", f"Recap Student {i}")
+        client.post("/api/classes/join", headers=h, json={"code": room["code"]})
+        ids.append(uid)
+    other, _ = _user(client, "recap.other@example.com", "Other Teacher")
+    with SessionLocal() as db:
+        db.add_all([_trace(ids[0], "Rotational Motion", TRIG), _trace(ids[1], "Rotational Motion", TRIG, status="fixed")])
+        key = f"lesson:{TRIG[0]}:{TRIG[3][:80]}:jee.physics.rotational-motion:en"
+        db.merge(PrereqMap(key=key, chain={"md": "Sine is opposite over hypotenuse.", "check": {"q": "sin 30°?", "options": ["0.5", "1", "0", "2"], "answer": 0}}))
+        db.commit()
+
+    def no_ai(*a, **k):
+        raise AssertionError("the lesson students already got should be reused")
+
+    monkeypatch.setattr(gaps.llm, "json", no_ai)
+    url = f"/api/classes/{room['id']}/recap"
+    made = client.post(url, headers=teacher, json={"chapter_id": TRIG[0]})
+    assert made.status_code == 200, made.text
+    recap = made.json()
+    assert recap["md"].startswith("Sine") and recap["check"]["answer"] == 0 and recap["students"] == 2 and recap["cls"] == 10
+    assert client.post(url, headers=teacher, json={"chapter_id": RATIOS[0]}).status_code == 400  # nobody in the class has it
+    assert client.post(url, headers=other, json={"chapter_id": TRIG[0]}).status_code in (403, 404)  # only the class's teacher
+
+    # in another language, nobody has it yet: the AI writes it once, then it is kept
+    calls = []
+
+    def lesson_ai(messages, **k):
+        calls.append(messages[0]["content"])
+        return {"lesson_md": "साइन कोण के सामने की भुजा बटा कर्ण है।", "check": {"q": "sin 30°?", "options": ["0.5", "1", "0", "2"], "answer": 0}}
+
+    monkeypatch.setattr(gaps.llm, "json", lesson_ai)
+    assert client.patch("/api/auth/me", headers=teacher, json={"language": "hi"}).status_code == 200
+    assert client.post(url, headers=teacher, json={"chapter_id": TRIG[0]}).json()["md"].startswith("साइन")
+    assert client.post(url, headers=teacher, json={"chapter_id": TRIG[0]}).status_code == 200 and len(calls) == 1
+    assert "Devanagari" in calls[0]

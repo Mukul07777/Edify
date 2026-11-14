@@ -292,29 +292,48 @@ def lesson(db: Session, user: User, trace: GapTrace) -> tuple[GapTrace, bool]:
         raise GapError("There's no root gap to fix on this trace.")
     if trace.lesson:
         return trace, False
-    link = trace.chain[trace.root]
-    key = f"lesson:{link['chapter_id']}:{link['idea'][:80]}:{trace.chapter_id}:{user.language or 'en'}"
-    hit = db.get(PrereqMap, key)
-    used_ai = False
-    if hit and hit.chain:
-        made = hit.chain
-    else:
-        target = trace.title
-        where = f"Class {link['cls']}" if link.get("cls") else "earlier in your course"
-        data = llm.json([{"role": "system", "content": ai._in(LESSON_SYSTEM.format(
-                            target=target, idea=link["idea"], chapter=link["name"], where=where, old_q=link["check"]["q"]), user.language)},
-                         {"role": "user", "content": f"Why the topic needs it: {link.get('why') or link['idea']}"}],
-                        max_tokens=2200, temperature=0.3, feature="gap_lesson")
-        check = _clean_check(data.get("check"))
-        md = str(data.get("lesson_md") or "").strip()
-        if not md or check is None:
-            raise GapError("Couldn't write the lesson right now. Try again in a minute.")
-        made = {"md": ai.fix_latex(md), "check": check}
-        db.merge(PrereqMap(key=key, chain=made))
-        used_ai = True
+    made, used_ai = _made_lesson(db, trace.chain[trace.root], trace.title, trace.chapter_id, user.language)
     trace.lesson = {**made, "result": None}
     db.commit()
     return trace, used_ai
+
+
+def _made_lesson(db: Session, link: dict[str, Any], title: str, chapter_id: str, language: str | None) -> tuple[dict[str, Any], bool]:
+    """The five-minute lesson on one earlier idea behind one topic, in one language: written once, then shared by every
+    student (and teacher) who needs the same one. (lesson, whether the AI was asked)"""
+    key = f"lesson:{link['chapter_id']}:{link['idea'][:80]}:{chapter_id}:{language or 'en'}"
+    hit = db.get(PrereqMap, key)
+    if hit and hit.chain:
+        return hit.chain, False
+    where = f"Class {link['cls']}" if link.get("cls") else "earlier in your course"
+    data = llm.json([{"role": "system", "content": ai._in(LESSON_SYSTEM.format(
+                        target=title, idea=link["idea"], chapter=link["name"], where=where, old_q=link["check"]["q"]), language)},
+                     {"role": "user", "content": f"Why the topic needs it: {link.get('why') or link['idea']}"}],
+                    max_tokens=2200, temperature=0.3, feature="gap_lesson")
+    check = _clean_check(data.get("check"))
+    md = str(data.get("lesson_md") or "").strip()
+    if not md or check is None:
+        raise GapError("Couldn't write the lesson right now. Try again in a minute.")
+    made = {"md": ai.fix_latex(md), "check": check}
+    db.merge(PrereqMap(key=key, chain=made))
+    return made, True
+
+
+def class_recap(db: Session, teacher: User, user_ids: list[int], root_chapter_id: str) -> tuple[dict[str, Any], bool]:
+    """A batch's "teach first": the five-minute lesson on an earlier gap several of its students share, in the
+    teacher's language, with its check question and answer, for a ten-minute recap in class. Students who already got
+    that lesson have paid for it: then it costs nothing. (recap, whether the AI was asked)"""
+    traces = db.scalars(select(GapTrace).where(GapTrace.user_id.in_(user_ids or [-1]), GapTrace.status.in_(("found", "fixed")))).all()
+    hits = [t for t in traces if t.root is not None and t.chain and t.root < len(t.chain) and t.chain[t.root]["chapter_id"] == root_chapter_id]
+    if not hits:
+        raise GapError("No student in this class has that gap.")
+    target = Counter(t.chapter_id for t in hits).most_common(1)[0][0]  # the topic most of them were stuck on
+    sample = next(t for t in hits if t.chapter_id == target)
+    link = sample.chain[sample.root]
+    made, used_ai = _made_lesson(db, link, sample.title, sample.chapter_id, teacher.language)
+    db.commit()
+    return {"chapter_id": link["chapter_id"], "name": link["name"], "cls": link.get("cls"), "idea": link["idea"],
+            "stuck_on": sample.title, "students": len({t.user_id for t in hits}), "md": made["md"], "check": made["check"]}, used_ai
 
 
 def recheck(db: Session, trace: GapTrace, choice: int) -> GapTrace:
