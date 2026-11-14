@@ -7,7 +7,8 @@ Runs through the app itself (the real endpoints, in-process) on the database in 
     written in their language, revision sheet and flashcards made
   - a teacher's live class with its boards and a confusion map ("I'm lost" taps, wrong answers, doubts)
   - the teacher's batch with root-cause traces: two students stuck on Rotational Motion share the same earlier gap
-    (the root-gap map's "teach first"), and the JEE student's five-minute fix (in Hinglish) passed its re-check;
+    (the root-gap map's "teach first"), and the JEE student's five-minute fix (in Hinglish) passed its re-check, taking
+    Rotational Motion from 1 of 3 to 3 of 3;
     the classmate's coach is on, with their open root gap first in tomorrow's plan (when the coach is running)
   - a verified B.Tech senior, and an "Ask a senior" question with Edify's draft checked and a senior's answer accepted
 
@@ -139,17 +140,26 @@ def seed(client, password: str, reset: bool = False) -> dict:
             continue
         trace_id = r.json()["id"]
         with SessionLocal() as db:
-            chain = db.get(GapTrace, trace_id).chain
+            made = db.get(GapTrace, trace_id)
+            chain, retest = made.chain, made.retest
         wrong = 0 if miss == "nearest" else next((i for i, c in enumerate(chain) if miss in c["name"].lower()), len(chain) - 1)
         picks = [(c["check"]["answer"] + 1) % len(c["check"]["options"]) if i == wrong else c["check"]["answer"]
                  for i, c in enumerate(chain)]
-        client.post(f"/api/gaps/{trace_id}/answers", headers=h[key], json={"answers": picks}).raise_for_status()
+        # the stuck topic itself first: one of three right (the "before" of before-and-after), when the bank had questions
+        before = None
+        if retest:
+            keys = [item["answer"] for item in retest["before"]["items"]]
+            before = [k if i == 0 else (k + 1) % 4 for i, k in enumerate(keys)]
+        client.post(f"/api/gaps/{trace_id}/answers", headers=h[key], json={"answers": picks, "before": before}).raise_for_status()
         traced += 1
         if key == "student":  # the five-minute fix in their language, and the re-check passed
             if client.post(f"/api/gaps/{trace_id}/lesson", headers=h[key]).status_code == 200:
                 with SessionLocal() as db:
                     right = db.get(GapTrace, trace_id).lesson["check"]["answer"]
                 client.post(f"/api/gaps/{trace_id}/check", headers=h[key], json={"choice": right}).raise_for_status()
+                if retest:  # and the stuck topic again: three of three now
+                    after = [item["answer"] for item in retest["after"]["items"]]
+                    client.post(f"/api/gaps/{trace_id}/after", headers=h[key], json={"answers": after}).raise_for_status()
     print(f"  class {batch['code']}: 3 students, {traced} traces; the root-gap map at /app/classes/{batch['id']}")
     # the classmate's root gap is still open: their coach plans it first ("Fix the root: ..." on their dashboard)
     coach = client.post("/api/coach/enable", headers=h["classmate"])
