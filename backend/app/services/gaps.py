@@ -348,16 +348,19 @@ def batch_roots(db: Session, user_ids: list[int]) -> dict[str, Any]:
 
 
 GAP_FEATURES = ("gap_trace", "gap_lesson")
+DEMO_PREFIX = "demo.focs."  # scripts/seed_demo.py's accounts
 
 
 def proof(db: Session) -> dict[str, Any]:
     """How root-cause tracing goes for real students, from the app's own records (never estimated): how often a trace
     finds an earlier gap, how often the five-minute fix works on the re-check, how long fixing takes, how many traces
     reused a chain another student's trace had already paid for, and what the AI behind it cost per student."""
-    started = db.scalar(select(func.count(GapTrace.id))) or 0
-    done = db.scalars(select(GapTrace).where(GapTrace.status != "checking")).all()
+    real = select(User.id).where(User.email.not_like(f"{DEMO_PREFIX}%"))  # the seeded demo accounts never count
+    started = db.scalar(select(func.count(GapTrace.id)).where(GapTrace.user_id.in_(real))) or 0
+    done = db.scalars(select(GapTrace).where(GapTrace.status != "checking", GapTrace.user_id.in_(real))).all()
     chains = db.scalar(select(func.count(PrereqMap.key))) or 0
-    usd = float(db.scalar(select(func.coalesce(func.sum(LlmCall.cost_usd), 0.0)).where(LlmCall.feature.in_(GAP_FEATURES))) or 0.0)
+    usd = float(db.scalar(select(func.coalesce(func.sum(LlmCall.cost_usd), 0.0))
+                          .where(LlmCall.feature.in_(GAP_FEATURES), LlmCall.user_id.in_(real))) or 0.0)
     return summarize(list(done), started, chains, usd)
 
 
