@@ -175,6 +175,12 @@ def coaches(db: Session = Depends(get_db)) -> dict[str, Any]:
     return coach.fleet(db)
 
 
+@router.post("/coaches/register")
+def register_coaches(db: Session = Depends(get_db)) -> dict[str, int]:
+    """Students whose coach runs on this PC, registered on Maritime with their limits (free; no machine is started)."""
+    return coach.register_all(db)
+
+
 @router.get("/users")
 def users(q: str = Query("", max_length=80), limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_db)):
     ledger.flush()

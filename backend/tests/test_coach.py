@@ -207,3 +207,67 @@ def test_an_incomplete_ai_pack_is_repaired(agent):
     assert pack["formulas"] == ["τ = r × F"]  # missing: taken from the lecture
     assert pack["key_points"] == ["Turning effect", "3"] and pack["practice"] == [{"q": "Define torque", "answer": ""}]
     assert set(pack) >= {"headline", "key_points", "formulas", "practice", "link", "source"}
+
+
+def _maritime_recorder(calls, down=None):
+    """A stand-in for Maritime's API: records each call; ``down`` (a list holding a bool) makes it answer 503."""
+    def fake(method, url, json=None, timeout=None, headers=None):  # noqa: A002 - httpx's own name
+        path = url.removeprefix(settings.MARITIME_API_URL)
+        calls.append((method, path, json))
+        status = 503 if down and down[0] else 200
+        return httpx.Response(status, json={"id": "eu_1"} if status == 200 else {"detail": "down"}, request=httpx.Request(method, url))
+    return fake
+
+
+def test_a_coach_on_this_pc_still_registers_the_student_on_maritime(client, agent, monkeypatch):
+    """No card on Maritime yet: the coach runs on this PC, but the student is a Maritime end user with their limits
+    from the start (free: no machine is made). Maritime gets a first name and an initial, nothing more."""
+    _, url = agent
+    calls: list = []
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(settings, "MARITIME_COACH_REPO", "")
+    monkeypatch.setattr(settings, "MARITIME_COACH_URL", url)
+    monkeypatch.setattr(coach.httpx, "request", _maritime_recorder(calls))
+    h = _register(client, "ravi.registered@example.com")
+    uid = client.get("/api/auth/me", headers=h).json()["id"]
+    on = client.post("/api/coach/enable", headers=h).json()
+    assert on["status"] == "ready" and not on["on_maritime"] and on["maritime_user"]
+    assert [(m, p) for m, p, _ in calls] == [("PUT", f"/api/v1/end-users/edify_{uid}"), ("PUT", f"/api/v1/end-users/edify_{uid}/policy")]
+    assert calls[0][2]["displayName"] == "Ravi K." and calls[1][2]["policy"]["llm_spend_cap_cents_per_month"] == settings.COACH_AI_CAP_CENTS
+    calls.clear()
+    client.post("/api/coach/refresh", headers=h)
+    assert calls == []  # registered once
+
+
+def test_maritime_down_never_stops_the_coach_and_registers_later(client, agent, monkeypatch):
+    _, url = agent
+    calls: list = []
+    down = [True]
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(settings, "MARITIME_COACH_REPO", "")
+    monkeypatch.setattr(settings, "MARITIME_COACH_URL", url)
+    monkeypatch.setattr(coach.httpx, "request", _maritime_recorder(calls, down))
+    h = _register(client, "ravi.later@example.com")
+    on = client.post("/api/coach/enable", headers=h).json()
+    assert on["status"] == "ready" and not on["maritime_user"]  # the coach works; Maritime can wait
+    down[0] = False
+    assert client.post("/api/coach/refresh", headers=h).json()["maritime_user"]  # registered at the next plan
+
+
+def test_the_admin_registers_every_waiting_student(client, agent, monkeypatch):
+    from app.core.database import SessionLocal
+    from app.models.coach import CoachAgent
+
+    _, url = agent
+    calls: list = []
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "")  # turned on before Maritime was set up
+    monkeypatch.setattr(settings, "MARITIME_COACH_URL", url)
+    h = _register(client, "ravi.waiting@example.com")
+    uid = client.get("/api/auth/me", headers=h).json()["id"]
+    assert not client.post("/api/coach/enable", headers=h).json()["maritime_user"]
+    monkeypatch.setattr(settings, "MARITIME_API_KEY", "mk_test")
+    monkeypatch.setattr(coach.httpx, "request", _maritime_recorder(calls))
+    with SessionLocal() as db:
+        out = coach.register_all(db)
+        assert out["registered"] >= 1 and db.get(CoachAgent, uid).maritime_user == f"edify_{uid}"
+    assert ("PUT", f"/api/v1/end-users/edify_{uid}/policy") in [(m, p) for m, p, _ in calls]

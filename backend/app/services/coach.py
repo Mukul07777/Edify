@@ -77,12 +77,48 @@ def _detail(r: httpx.Response) -> str:
     return (d if isinstance(d, str) else json.dumps(d))[:160]
 
 
+def _display(user: User) -> str:
+    """The name Maritime is given: a first name and an initial, no more than the fleet view needs."""
+    parts = (user.full_name or "").split()
+    return f"{parts[0]} {parts[-1][0]}." if len(parts) > 1 else (parts[0] if parts else f"Student {user.id}")
+
+
+def _register(user: User) -> str:
+    """The student as a Maritime end user, with their limits (AI spend, wakes, compute) in place. Free, and done whether
+    or not their coach can run on Maritime yet: the policy exists before any machine does, so none runs unguarded."""
+    ext = end_user_id(user)
+    _maritime("PUT", f"/api/v1/end-users/{ext}", {"displayName": _display(user), "metadata": {"exam": user.exam_target or ""},
+                                                  "tags": ["edify", "coach"]})
+    _maritime("PUT", f"/api/v1/end-users/{ext}/policy", {"policy": policy()})
+    return ext
+
+
+def _ensure_registered(db: Session, row: CoachAgent, user: User) -> None:
+    """Register the student on Maritime once. Maritime being unreachable or saying no never stops the coach itself."""
+    if row.maritime_user or not settings.MARITIME_API_KEY:
+        return
+    try:
+        row.maritime_user = _register(user)
+        db.commit()
+    except CoachError as exc:
+        log.info("student %s not registered on Maritime yet: %s", user.id, exc)
+
+
+def register_all(db: Session) -> dict[str, int]:
+    """Every student with a coach who isn't on Maritime yet, registered now (for the admin panel's button)."""
+    rows = db.scalars(select(CoachAgent).where(CoachAgent.maritime_user.is_(None))).all()
+    users = {u.id: u for u in db.scalars(select(User).where(User.id.in_([r.user_id for r in rows])))} if rows else {}
+    done = 0
+    for row in rows:
+        if row.user_id in users:
+            _ensure_registered(db, row, users[row.user_id])
+            done += bool(row.maritime_user)
+    return {"registered": done, "waiting": len(rows) - done}
+
+
 def _provision(user: User) -> str:
     """The student's coach machine, created once (Maritime answers with the same agent on every later call)."""
-    ext = end_user_id(user)
-    _maritime("PUT", f"/api/v1/end-users/{ext}", {"displayName": user.full_name, "metadata": {"exam": user.exam_target or ""},
-                                                  "tags": ["edify", "coach"]})
-    _maritime("PUT", f"/api/v1/end-users/{ext}/policy", {"policy": policy()})  # set before the machine exists, so it never runs unguarded
+    ext = _register(user)  # the student and their limits before the machine exists, so it never runs unguarded
     own_key = bool(settings.COACH_LLM_API_KEY) and not settings.MARITIME_USE_LLM
     env = [  # never Edify's own LLM key: a coach machine holds only a key meant for coaches, or none (Maritime's LLM)
         {"key": "LLM_API_KEY", "value": settings.COACH_LLM_API_KEY, "isSecret": True},
@@ -205,6 +241,7 @@ def view(db: Session, user: User) -> dict[str, Any]:
     row = row_of(db, user)
     m = mode()
     return {"available": m is not None, "on_maritime": m == "maritime", "enabled": row is not None,
+            "maritime_user": bool(row and row.maritime_user),
             "status": row.status if row else None, "error": row.error if row else None,
             "state": (row.state or {}) if row else {}, "synced_at": row.synced_at if row else None}
 
@@ -226,12 +263,14 @@ def enable(db: Session, user: User) -> dict[str, Any]:
     if m == "maritime" and not row.agent_id:
         try:
             row.agent_id = _provision(user)
+            row.maritime_user = end_user_id(user)
         except CoachError as exc:
             row.status, row.error = "failed", str(exc)
             db.commit()
             raise
     row.status = "starting"
     db.commit()
+    _ensure_registered(db, row, user)  # on this PC too: the student and their limits are on Maritime from the start
     try:
         refresh(db, user)
     except CoachError as exc:  # a brand-new machine is often still building: the row says so, and a retry finishes it
@@ -243,6 +282,7 @@ def enable(db: Session, user: User) -> dict[str, Any]:
 def refresh(db: Session, user: User) -> dict[str, Any]:
     """Tell the coach what's new, then have it plan the day."""
     row = _require(db, user)
+    _ensure_registered(db, row, user)  # a student who turned the coach on before this, registered at their next plan
     _send(row, snapshot(db, user))
     _keep(db, row, _send(row, {"type": "review", "reason": "asked"}))
     return view(db, user)
@@ -286,6 +326,7 @@ def fleet(db: Session) -> dict[str, Any]:
     out: dict[str, Any] = {
         "mode": mode(), "tier": settings.MARITIME_COACH_TIER, "policy": policy(),
         "coaches": [{"user_id": r.user_id, "name": names.get(r.user_id, "?"), "mode": r.mode, "agent_id": r.agent_id, "status": r.status,
+                     "maritime_user": r.maritime_user,
                      "lectures": (r.state or {}).get("lectures_seen", 0), "reviews": (r.state or {}).get("reviews", 0),
                      "synced_at": iso(r.synced_at)} for r in rows],
         "maritime": None, "maritime_error": None,
@@ -300,7 +341,7 @@ def fleet(db: Session) -> dict[str, Any]:
                          for d in summary.get("days", [])],
                 "users": [{"external_id": p["externalId"], "name": p.get("displayName"), "agents": p.get("agentCount", 0),
                            "agent_status": [a.get("status") for a in p.get("agents", [])], "messages": p.get("messageCount", 0),
-                           "ai_cents_30d": p.get("aiSpendCents30d", 0), "last_active": p.get("lastActiveAt"),
+                           "ai_cents_30d": p.get("aiSpendCents30d", 0), "last_active": p.get("lastActiveAt"), "policy": p.get("policy"),
                            "activity_14d": p.get("activity14d", [])} for p in people.get("items", [])],
             }
         except CoachError as exc:

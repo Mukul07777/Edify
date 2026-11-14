@@ -16,6 +16,8 @@ class CoachAgent(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     mode: Mapped[str] = mapped_column(String(10), default="maritime")        # maritime | local
     agent_id: Mapped[str | None] = mapped_column(String(80), nullable=True)  # Maritime's id for the machine
+    # the student as a Maritime end user ("edify_<id>"), with their limits: registered even while the coach runs on this PC
+    maritime_user: Mapped[str | None] = mapped_column(String(80), nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="starting")      # starting | ready | failed
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
