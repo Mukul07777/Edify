@@ -291,7 +291,7 @@ def fleet(db: Session) -> dict[str, Any]:
     if settings.MARITIME_API_KEY:
         try:
             summary = _maritime("GET", "/api/v1/end-user-summary?days=14")
-            people = _maritime("GET", "/api/v1/end-users?externalIdPrefix=edify_&limit=100&sort=activity")
+            people = _maritime("GET", "/api/v1/end-users?externalIdPrefix=edify_&limit=100&sort=lastActive")
             out["maritime"] = {
                 "total": summary.get("totalUsers", 0), "active_7d": summary.get("activeUsers7d", 0), "messages": summary.get("messages", 0),
                 "days": [{"day": d["day"], "active": d.get("activeUsers", 0), "messages": d.get("messages", 0), "ai_cents": d.get("aiCents", 0)}

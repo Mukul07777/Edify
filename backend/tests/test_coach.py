@@ -165,7 +165,7 @@ def test_a_sample_lecture_and_the_admin_fleet_view(client, agent, monkeypatch):
     client.post("/api/coach/enable", headers=h)
     state = client.post("/api/coach/sample", headers=h).json()["state"]
     assert state["packs"][0]["lecture_id"] == "sample"
-    assert any(i["kind"] == "revise" for i in state["plan"]["items"]) is False  # due tomorrow, not today
+    assert state["plan"]["items"][0]["title"].startswith("Look over today's pack")  # first revision is tomorrow; a look back now
     from app.core.security import hash_password
     monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
     monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
@@ -196,3 +196,14 @@ def test_the_fleet_view_reads_maritime(monkeypatch):
         m = coach.fleet(db)["maritime"]
     assert m["total"] == 2 and m["users"][0]["agent_status"] == ["sleeping"] and m["days"][0]["ai_cents"] == 4.0
     assert any("externalIdPrefix=edify_" in p for p in seen)
+
+
+def test_an_incomplete_ai_pack_is_repaired(agent):
+    """Seen live: the model dropped "formulas" and "practice". The pack the app gets always has every field."""
+    mod, _ = agent
+    lecture = {"title": "Torque", "summary_md": "- Torque turns a body about an axis\n- τ = r × F"}
+    pack = mod._clean_pack({"headline": "Torque", "key_points": ["Turning effect", 3], "practice": [{"question": "Define torque"}, "junk"]},
+                           mod._fallback_pack(lecture))
+    assert pack["formulas"] == ["τ = r × F"]  # missing: taken from the lecture
+    assert pack["key_points"] == ["Turning effect", "3"] and pack["practice"] == [{"q": "Define torque", "answer": ""}]
+    assert set(pack) >= {"headline", "key_points", "formulas", "practice", "link", "source"}
