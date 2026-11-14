@@ -967,9 +967,17 @@ export interface MentorReport {
 export interface ClassRow { id: number; name: string; code: string; students: number }
 export interface ClassList { teaching: ClassRow[]; joined: { id: number; name: string; teacher: string; joined_at: string | null }[] }
 export interface ClassStudent extends ProgressSummary { user_id: number; name: string }
+/** One earlier chapter that several students' root-cause traces led to. Counts only: nobody is named. */
+export interface BatchRoot {
+  chapter_id: string; name: string; subject: string | null; cls: number | null; idea: string;
+  students: number; fixed: number; share: number; stuck_on: string[];
+}
+export interface BatchRoots { traced: number; with_root: number; fixed: number; roots: BatchRoot[] }
+
 export interface ClassDashboard {
   id: number; name: string; code: string; students: ClassStudent[];
   weakest: { id: string; chapter: string; subject: string; students: number }[];
+  roots: BatchRoots;
   totals: { students: number; active_week: number; avg_week_minutes: number; avg_syllabus: number | null };
 }
 export interface ParentSummary extends ProgressSummary { name: string }

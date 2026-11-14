@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Copy, Crosshair, Flame, Presentation, Route, Trash2, UserMinus, Users } from "lucide-react";
+import { ArrowLeft, Clock, Copy, Crosshair, Flame, Layers, Presentation, Route, Trash2, UserMinus, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { StatTile, WeekBars } from "@/components/ProgressBits";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, CardHeader, EmptyState, ProgressBar, Segmented, Skeleton } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api";
-import type { ClassStudent } from "@/lib/types";
+import type { BatchRoots, ClassStudent } from "@/lib/types";
 import { formatMinutes, subjectColor } from "@/lib/utils";
 import { copyText } from "@/pages/Classes";
 
@@ -43,6 +43,56 @@ function StudentRow({ s, onRemove }: { s: ClassStudent; onRemove: () => void }) 
       </div>
       <Button size="icon-sm" variant="ghost" aria-label={`Remove ${s.name} from the class`} title="Remove from the class" onClick={onRemove}><UserMinus className="h-3.5 w-3.5" /></Button>
     </div>
+  );
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** Where the class's trouble really starts: the earlier chapters its root-cause traces led to, most shared first. */
+function RootMap({ r }: { r: BatchRoots }) {
+  const top = r.roots[0];
+  return (
+    <Card className="mb-4">
+      <CardHeader title="Where the gaps really start" icon={<Layers className="h-4 w-4" />}
+        subtitle="Each student's root-cause traces, added up: the earlier chapter behind the trouble. Teach these first; nobody is named." />
+      {r.with_root === 0 ? (
+        <p className="px-5 pb-5 text-sm text-muted">
+          {r.traced ? `${plural(r.traced, "student")} traced a weak chapter and found no earlier gap.` : "No traces yet."} When students
+          use <span className="font-medium text-fg">Root cause</span> on a weak chapter, the earlier gaps behind it add up here.
+        </p>
+      ) : (
+        <div className="px-5 pb-5">
+          <p className="mb-3 text-sm text-muted">
+            <span className="font-semibold text-fg">{r.with_root}</span> of {plural(r.traced, "student")} who traced a weak chapter found a root gap
+            {r.fixed > 0 && <> · <span className="font-semibold text-ok">{r.fixed}</span> fixed it</>}
+          </p>
+          {top.students > 1 && (
+            <p className="mb-3 rounded-xl border border-accent/30 bg-accent-soft px-3 py-2 text-sm">
+              <span className="font-semibold">Teach first:</span> a short recap of {top.name}{top.cls ? ` (Class ${top.cls})` : ""} could
+              unblock {plural(top.students, "student")}, stuck on {top.stuck_on.join(", ")}.
+            </p>
+          )}
+          <ul className="space-y-3">
+            {r.roots.map((g) => (
+              <li key={g.chapter_id} className="rounded-xl border border-line bg-bg-soft px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  {g.cls && <Badge tone="accent">Class {g.cls}</Badge>}
+                  {g.subject && <span className="h-2 w-2 rounded-full" style={{ background: subjectColor(g.subject) }} />}
+                  <span className="font-semibold">{g.name}</span>
+                  <span className="ml-auto text-xs text-muted">{plural(g.students, "student")}{g.fixed > 0 && ` · ${g.fixed} fixed`}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted">{g.idea}</div>
+                <div className="mt-2 flex items-center gap-3">
+                  <ProgressBar value={g.share} className="flex-1" tone={g.fixed >= g.students ? "ok" : "warn"} />
+                  <span className="w-10 text-right text-xs font-semibold tabular-nums">{g.share}%</span>
+                </div>
+                <div className="mt-1 text-xs text-muted">Behind: {g.stuck_on.join(", ")}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -101,6 +151,7 @@ export default function ClassView() {
               </div>
             </Card>
           )}
+          {data.roots && <RootMap r={data.roots} />}
           <Card>
             <CardHeader title="Students" icon={<Users className="h-4 w-4" />}
               action={<Segmented size="sm" value={sort} onChange={setSort} options={[{ value: "name", label: "A to Z" }, { value: "study", label: "Least study first" }, { value: "syllabus", label: "Furthest behind" }]} />} />
