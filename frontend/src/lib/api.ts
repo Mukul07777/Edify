@@ -152,6 +152,7 @@ export const api = {
 
   // root-cause gap tracing: the earlier gap behind a topic, found and fixed
   gaps: () => get<GapOverview>("/gaps"),
+  genome: () => get<Genome>("/gaps/genome"),
   gapStart: (chapter_id: string, topic_id?: string | null) => post<GapTrace>("/gaps", { chapter_id, topic_id: topic_id ?? null }),
   gap: (id: number) => get<GapTrace>(`/gaps/${id}`),
   gapAnswers: (id: number, answers: (number | null)[], before?: (number | null)[]) => post<GapTrace>(`/gaps/${id}/answers`, { answers, before }),
@@ -494,3 +495,12 @@ export const api = {
 };
 
 export type { Checkpoint };
+
+export interface GenomeNode {
+  id: string; name: string; subject: string | null; cls: number | null; kind: "exam" | "school";
+  underpins: number; roots: number; fixed: number;
+}
+export interface Genome {
+  exam_chapters: number; foundations: number; links: number; students: number; traces: number; rooted: number;
+  top: GenomeNode[]; nodes: GenomeNode[]; edges: { from: string; to: string; weight: number }[];
+}
