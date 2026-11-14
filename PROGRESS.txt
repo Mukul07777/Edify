@@ -1,0 +1,206 @@
+EDIFY - HACKATHON PROGRESS REPORT
+Updated: 14 Nov 2026
+Repos: github.com/Mukul07777/Edify (main app), github.com/Mukul07777/edify-coach (coach agent)
+All commits authored by mukul07777. 50 commits on main, all pushed.
+
+=====================================================================
+OVERALL STATUS
+=====================================================================
+  Done          : about 90%
+  In progress   : final pass
+  Blocked       : Maritime cloud machines (needs a card on the account)
+  Waiting on you: Prune API key in backend\.env
+
+  [#########################################-----]  ~90%
+
+=====================================================================
+1. DONE (built, tested, pushed)
+=====================================================================
+
+1.1 Look and brand  ............................................ DONE
+    - New light, professional UI matching the reference: big centred
+      "Edify" heading (Fraunces font), "every lecture, understood."
+      subtitle, glass cards, pill navigation, floating chips around the
+      live demo.
+    - New light colour palette across the whole app (index.css).
+    - Your bulb "e" logo everywhere: website header, favicon, app icons
+      (192/512/maskable), Apple touch icon, social share image (og.png),
+      Android app icons, boot screen.
+    - Service worker cache bumped so phones pick up the new logo.
+
+1.2 Rename "focs" -> "edify"  ................................... DONE
+    - About 69 files: run.bat banner, OCR model (edifyocr.onnx),
+      ml/edify_ocr, EDIFY_* environment variables, page titles, docs.
+    - Kept on purpose (renaming would break existing data/installs):
+      focs.db database file, focs_inr columns, saved browser keys,
+      Android package id com.focs.app, keystore alias, demo emails.
+
+1.3 Sentry removed  ............................................ DONE
+    - Backend monitoring module, frontend sentry files, config,
+      requirements, vite plugin, privacy-page line and .env keys deleted.
+
+1.4 Edify Coach - "Best use of Maritime"  ...................... DONE*
+    - One personal AI coach per student (agents/edify-coach/server.py,
+      also in the edify-coach repo).
+    - Remembers each student separately: weak chapters, mocks, sessions,
+      root gaps.
+    - Builds a daily plan, runs a nightly review at 21:30 IST, answers
+      questions in the student's language, tracks revisions.
+    - Backend: provisioning on Maritime (end user, spend policy, agent,
+      nightly cron trigger), coach API (enable / refresh / sample / ask /
+      revised), admin fleet view.
+    - Web: Coach card with "Try a sample lecture", admin Coach Fleet.
+    - Safety: Edify's own key never goes to coach machines; per-student
+      AI spend cap ($1/month), wake limit and compute cap.
+    * Runs LOCALLY on this PC (started by run.bat) because Maritime
+      will not start any machine until a card is added. Code for the
+      Maritime cloud path is complete and tested with mocks.
+
+1.5 Innovation #1 - Root-cause gap tracing  .................... DONE
+    Problem: a student "fails Rotational Motion" but the real gap is
+    Class 7 ratios or Class 10 trigonometry. Nobody finds that.
+    - Student picks a chapter -> AI builds a chain of real earlier
+      chapters, going down through the classes (JEE/NEET -> Class 10 ->
+      Class 7...). Invented chapters and bad questions are dropped.
+    - One quick check question per link -> the deepest wrong answer is
+      the ROOT gap.
+    - 5-minute fix lesson in the student's language + a re-check
+      question -> marked "fixed".
+    - Chains and lessons are shared/cached: the next student with the
+      same gap costs zero AI.
+    - Coach puts "Fix the root" first in the daily plan.
+    - New page: /app/roots ("Root cause" in the menu).
+    - Live-tested with the real AI:
+        JEE Rotational Motion   -> Class 10 trigonometry
+        NEET Electrostatics     -> Class 7 signed integers
+        Class 10 Trigonometry   -> Class 7 ratios
+
+1.6 Innovation #2 - Teacher's next-class kit  .................. DONE
+    Problem: a teacher sees the room got lost but not WHY or what to do.
+    - Under every board in the confusion map: "Next-class kit" button
+      (host only).
+    - Reads the real evidence: "I'm lost" taps, wrong quiz answers,
+      which wrong option most students picked, doubts asked.
+    - Gives: the misconception, a 2-minute simpler explanation, an
+      everyday Indian analogy, 3-4 board lines, 2 opener MCQs, and the
+      earlier-class idea the room is missing.
+    - Cached until new evidence comes in.
+    - Live-tested: correctly diagnosed "sin θ vs sin 2θ" in a
+      projectile-range quiz.
+
+1.7 Tests  ...................................................... DONE
+    - Full backend suite passing (430+ tests), including new tests for
+      gaps, coach, next-class kit and access control.
+
+1.8 README  ..................................................... DONE
+    - Rewritten around "a coach per student on Maritime", with a diagram
+      and honest status of what runs locally vs on Maritime.
+
+1.9 Pitch material  ............................................. DONE
+    - 50-100 word description, Gemini logo prompt, project scoring.
+
+=====================================================================
+2. IN PROGRESS
+=====================================================================
+
+2.1 Innovation #3 - Mother-tongue languages  ............... DONE
+    Problem: the AI spoke English, Hinglish and Hindi only. Crores of
+    students think in Tamil, Bengali, Marathi, Telugu or Gujarati.
+    [x] Backend: ta, bn, mr, te, gu in ai.LANGUAGES and REPLY_IN, from
+        one MOTHER_TONGUES table (native script; technical terms,
+        formulas and units kept in English)
+    [x] translate.py: names, rules, and a script check per language
+        (English handed back, or the wrong script, is caught). Marathi
+        that slipped into Hindi is caught by the everyday words.
+    [x] One Language type for profile, mock and snap APIs. Mock-paper
+        explanations are now language-checked too (they are kept for
+        every student, so a wrong one used to stick).
+    [x] Speech hint, caption labels and mentor languages know them.
+    [x] Coach agent replies in them (edify-coach repo pushed)
+    [x] Frontend: compact language menu (Settings, solutions, Snap),
+        mic offers the student's own language, read-aloud picks the
+        script's voice, screen-reader lang tags
+    [x] Tests (test_mother_tongues.py) + live check with the real AI:
+        Tamil notes, Marathi / Telugu / Gujarati doubts, Bengali
+        solution: all in the right script, formulas intact.
+        The live Marathi answer caught a bug in the Hindi-word check
+        (का is Marathi for "why"); fixed and tested.
+
+2.2 Score push (after the 75/100 rating)  ........................ DONE
+    [x] Innovation: "Where the gaps really start" on the teacher's
+        class page: every student's root traces added up, with a
+        "teach first" line. Counts only, nobody named.
+    [x] Impact + tech depth: admin panel "Root-cause tracing,
+        measured": roots found, fixes that held, time to fix, chains
+        reused, AI cost per student. From real students only (demo
+        accounts never count). The numbers stay empty until real
+        students use it: YOU still need 10 real students.
+    [x] Completeness: click-through of 13 page loads (desktop and
+        phone), no console errors, no failed API calls, nothing
+        scrolls sideways. Demo GIF at the top of the README, plus a
+        "Built during the hackathon" table.
+    [x] Demo data: seed_demo.py now makes a batch with root traces, a
+        passed fix in Hinglish, and a coach planning the root first.
+        Password for every demo account: focs-demo-2026.
+    Bugs found and fixed on the way:
+    [x] Deleting an account failed (Postgres) for anyone who used
+        Root cause, the coach, or Ask a senior.
+    [x] An AI-made check marked the wrong option right (6π m worked
+        out, 9π m marked). Answers now follow the check's own working,
+        also in chains already stored.
+    [ ] Prune: still waiting for PRUNE_API_KEY in backend/.env.
+
+2.3 Push to max (except demo)  .................................. DONE
+    [x] Innovation: before -> after. 3 bank questions on the stuck
+        topic before the trace, 3 others after the fix (no AI). The
+        demo shows Rotational Motion 1/3 -> 3/3. Admin shows it over
+        all real students.
+    [x] Innovation: "Make the 10-minute recap" on the class page,
+        reusing the lesson the students got (no AI when cached).
+    [x] Maritime: every student who turns on the coach is registered
+        on your Maritime account with their limits (free, no card).
+        Admin fleet has a button to register earlier students.
+        Deleting an account removes them there; your key lacks the
+        'manage' scope, so the name is blanked instead of deleted.
+    [x] Completeness: accessibility (axe, WCAG 2.1 A/AA) on 6 key
+        pages in light and dark mode: 0 problems. Dark mode checked.
+    [x] Fixed: tests were using the real Maritime key from .env and
+        registered test students there. Tests now never touch it.
+    [ ] Prune: still waiting for PRUNE_API_KEY in backend/.env.
+    [ ] 10 real students + 1 teacher: their numbers fill
+        Admin -> "Root-cause tracing, measured".
+
+=====================================================================
+3. LEFT TO DO
+=====================================================================
+
+3.1 Prune integration  ................... WAITING ON YOU
+    - Already wired in the AI layer; only needs PRUNE_API_KEY.
+    - Your step: open backend\.env, add  PRUNE_API_KEY=...  and save.
+      Do NOT paste the key in chat. Then tell me "Prune key added".
+    - My step after that: verify with one test call, tag gap traces,
+      kits and coach usage per feature/student, add it to the README.
+
+3.2 Maritime cloud machines  ............. BLOCKED (needs card)
+    - When a card is added in the Maritime dashboard: switch on
+      MARITIME_COACH_REPO in backend\.env and create ONE test coach.
+    - Cost: smart tier about $1 per student per month. I will confirm
+      the cost with you before starting anything.
+
+3.3 Final pass  .......................... NOT STARTED (~1 hour)
+    [x] Full test suite (459 passing) + frontend build + lint
+    [x] Click-through of Landing, Root cause, Class, Room report, Coach
+    [x] Stop the throwaway demo server (port 8011)
+    [ ] Final push to both repos
+
+3.4 Skipped on purpose
+    - WhatsApp delivery (you said skip for now).
+    - Demo video/deck (you said don't go into demo yet).
+
+=====================================================================
+4. SUGGESTED TIMELINE (remaining hackathon time)
+=====================================================================
+  Now  -> +3h   #3 mother-tongue languages, tested and pushed
+  +3h  -> +4h   Prune (as soon as the key is in .env)
+  +4h  -> +5h   Final pass: tests, build, click-through, push
+  After         Demo video / pitch deck, buffer for fixes
