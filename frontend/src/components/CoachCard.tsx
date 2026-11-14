@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpenCheck, Bot, Check, ChevronDown, Moon, RefreshCw, Send, Sparkles, Target, Timer } from "lucide-react";
+import { ArrowRight, BookOpenCheck, Bot, Check, ChevronDown, GitBranch, Moon, RefreshCw, Send, Sparkles, Target, Timer } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Markdown } from "@/components/Markdown";
@@ -12,7 +13,7 @@ import { cn, timeAgo } from "@/lib/utils";
 /* Edify Coach: the student's own study agent, on its own Maritime machine. It remembers them across weeks, writes a
    revision pack after each lecture, re-plans every night, and answers questions. Hidden when the server has no coach. */
 
-const KIND_ICON: Record<CoachPlanItem["kind"], typeof Target> = { revise: BookOpenCheck, weak: Target, mock: Timer, start: Sparkles };
+const KIND_ICON: Record<CoachPlanItem["kind"], typeof Target> = { root: GitBranch, revise: BookOpenCheck, weak: Target, mock: Timer, start: Sparkles };
 const failed = (fallback: string) => (e: unknown) => toast.error(e instanceof ApiError ? e.message : fallback);
 
 function PlanItem({ item, onDone, busy }: { item: CoachPlanItem; onDone?: () => void; busy?: boolean }) {
@@ -24,6 +25,9 @@ function PlanItem({ item, onDone, busy }: { item: CoachPlanItem; onDone?: () => 
         <span className="block text-[14px] font-medium leading-snug">{item.title}</span>
         <span className="mt-0.5 block text-[12.5px] text-muted">{item.why} · {item.minutes} min</span>
       </span>
+      {item.kind === "root" && item.trace_id && (
+        <Link to={`/app/roots?trace=${item.trace_id}`}><Button size="sm" variant="primary">Fix it <ArrowRight className="h-3.5 w-3.5" /></Button></Link>
+      )}
       {onDone && (
         <Button size="sm" variant="secondary" onClick={onDone} loading={busy} aria-label={`Mark ${item.title} as revised`}>
           <Check className="h-3.5 w-3.5" /> Done
