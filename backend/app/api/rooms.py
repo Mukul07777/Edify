@@ -32,6 +32,7 @@ from app.models.room import Room
 from app.models.session import StudySession
 from app.models.user import User
 from app.services import ai, confusion, live, usage, youtube
+from app.services.llm import LLMUnavailable
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
@@ -510,6 +511,27 @@ def confusion_report(code: str, db: Session = Depends(get_db), user: User = Depe
     return {"code": room.code, "name": room.name, "topic": room.topic, "is_active": bool(room.is_active),
             "live": confusion.meter(live_state.lost, time.time()) if live_state else None,
             **confusion.report(db, room.code)}
+
+
+class KitIn(BaseModel):
+    note_id: int
+
+
+@router.post("/{code}/next-class-kit", dependencies=[Depends(limit("reteach-kit", 10))])
+def next_class_kit(code: str, body: KitIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """For the host: what to do next class about a board that lost the room (the misconception, a simpler way,
+    an analogy, a board plan, two openers, and the earlier idea the room is probably missing)."""
+    room = _host_room(db, code, user)
+    from app.services import reteach
+    try:
+        made, used_ai = reteach.kit(db, room.code, body.note_id, user.language)
+    except LLMUnavailable as exc:
+        raise HTTPException(status_code=503, detail="The AI is busy right now. Try again in a minute.") from exc
+    if made is None:
+        raise HTTPException(status_code=404 if not used_ai else 503, detail="Couldn't build a kit for that board.")
+    if used_ai:
+        usage.charge(db, user, "reteach_kit")
+    return made
 
 
 @router.post("/{code}/recap", dependencies=[Depends(limit("room-ask", 20))])
