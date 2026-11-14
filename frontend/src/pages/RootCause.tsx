@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, Check, CircleHelp, GitBranch, Search, Sparkles, Target, X } from "lucide-react";
+import { ArrowDown, ArrowRight, Check, CircleHelp, GitBranch, Search, Sparkles, Target, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,7 +8,7 @@ import { Markdown } from "@/components/Markdown";
 import { Button } from "@/components/ui/button";
 import { Badge, Card, CardHeader, EmptyState, Input, Skeleton } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api";
-import type { GapCheck, GapLink, GapTrace } from "@/lib/types";
+import type { GapCheck, GapLink, GapRetestPart, GapTrace } from "@/lib/types";
 import { cn, timeAgo } from "@/lib/utils";
 
 /* Root cause: a topic that won't make sense, traced back through the earlier chapters it rests on. The student
@@ -40,11 +40,34 @@ function Options({ check, value, onPick, locked }: { check: GapCheck; value: num
   );
 }
 
+/** The stuck topic's own questions (before the trace, or again after the fix), answered together. */
+function RetestQuestions({ part, picks, onPicks, locked }: {
+  part: GapRetestPart; picks: (number | null)[]; onPicks: (p: (number | null)[]) => void; locked: boolean;
+}) {
+  return (
+    <div className="mt-4 space-y-5">
+      {part.items.map((item, i) => (
+        <div key={i}>
+          <div className="flex gap-2 text-[14px]"><span className="font-semibold text-muted">{i + 1}.</span><Markdown>{item.q}</Markdown></div>
+          <Options check={item} value={locked ? part.choices?.[i] : picks[i]} locked={locked}
+            onPick={(c) => onPicks(picks.map((v, j) => (j === i ? c : v)))} />
+          {locked && item.explain && <Markdown className="mt-2 line-clamp-3 text-[12.5px] text-muted">{item.explain}</Markdown>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Chain({ trace }: { trace: GapTrace }) {
   const qc = useQueryClient();
   const [picks, setPicks] = useState<(number | null)[]>(() => trace.chain.map(() => null));
+  const [beforePicks, setBeforePicks] = useState<(number | null)[]>(() => Array(trace.retest?.before.total ?? 0).fill(null));
+  const [afterPicks, setAfterPicks] = useState<(number | null)[]>(() => Array(trace.retest?.after.total ?? 0).fill(null));
   const put = (t: GapTrace) => { qc.setQueryData(["gap", t.id], t); qc.invalidateQueries({ queryKey: ["gaps"] }); };
-  const submit = useMutation({ mutationFn: () => api.gapAnswers(trace.id, picks), onSuccess: put, onError: failed("Couldn't check your answers") });
+  const submit = useMutation({ mutationFn: () => api.gapAnswers(trace.id, picks, trace.retest ? beforePicks : undefined), onSuccess: put, onError: failed("Couldn't check your answers") });
+  const again = useMutation({ mutationFn: () => api.gapAfter(trace.id, afterPicks), onSuccess: put, onError: failed("Couldn't check those") });
+  const before = trace.retest?.before;
+  const after = trace.retest?.after;
   const lesson = useMutation({ mutationFn: () => api.gapLesson(trace.id), onSuccess: put, onError: failed("Couldn't write the lesson right now") });
   const [pick, setPick] = useState<number | null>(null);
   const recheck = useMutation({ mutationFn: (c: number) => api.gapCheck(trace.id, c), onSuccess: put, onError: failed("Couldn't check that") });
@@ -64,6 +87,17 @@ function Chain({ trace }: { trace: GapTrace }) {
         </div>
         {checking && <p className="mt-3 text-[13.5px] text-muted">It rests on these earlier ideas. Answer one quick question for each: the deepest one you miss is your real gap.</p>}
       </Card>
+
+      {before && before.items.length > 0 && (
+        <Card className="p-5">
+          <div className="text-[15px] font-semibold">First, {trace.title} itself</div>
+          <p className="mt-0.5 text-[13px] text-muted">
+            {checking ? "Three quick questions, so you can see the difference once the gap is fixed."
+              : before.right === null ? "Skipped this time." : `Before the fix: ${before.right} of ${before.total} right.`}
+          </p>
+          <RetestQuestions part={before} picks={beforePicks} onPicks={setBeforePicks} locked={!checking} />
+        </Card>
+      )}
 
       {trace.chain.map((l, i) => (
         <div key={l.chapter_id}>
@@ -87,7 +121,7 @@ function Chain({ trace }: { trace: GapTrace }) {
 
       {checking && (
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <span className="text-[13px] text-muted">{picks.filter((p) => p !== null).length} of {picks.length} answered (a skip counts as not known yet)</span>
+          <span className="text-[13px] text-muted">{[...beforePicks, ...picks].filter((p) => p !== null).length} of {beforePicks.length + picks.length} answered (a skip counts as not known yet)</span>
           <Button variant="primary" onClick={() => submit.mutate()} loading={submit.isPending}>Find my root gap</Button>
         </div>
       )}
@@ -117,7 +151,7 @@ function Chain({ trace }: { trace: GapTrace }) {
                 <Options check={trace.lesson.check} value={trace.lesson.result ? trace.lesson.choice : pick}
                   locked={trace.lesson.result === "right"} onPick={setPick} />
                 {trace.status === "fixed" ? (
-                  <p className="mt-3 flex items-center gap-2 text-[14px] font-medium text-ok"><Check className="h-4 w-4" /> Gap closed. Go back to {trace.title}: it should click now.</p>
+                  <p className="mt-3 flex items-center gap-2 text-[14px] font-medium text-ok"><Check className="h-4 w-4" /> Gap closed.{after ? "" : ` Go back to ${trace.title}: it should click now.`}</p>
                 ) : (
                   <div className="mt-3 flex items-center gap-3">
                     <Button variant="primary" size="sm" disabled={pick === null} onClick={() => pick !== null && recheck.mutate(pick)} loading={recheck.isPending}>Check</Button>
@@ -126,6 +160,37 @@ function Chain({ trace }: { trace: GapTrace }) {
                 )}
               </div>
             </div>
+          )}
+        </Card>
+      )}
+
+      {trace.status === "fixed" && after && after.items.length > 0 && (
+        <Card className="p-5">
+          {after.right === null ? (
+            <>
+              <div className="text-[15px] font-semibold">Now {trace.title} again</div>
+              <p className="mt-0.5 text-[13px] text-muted">Three new questions on it, to see what fixing the root changed.</p>
+              <RetestQuestions part={after} picks={afterPicks} onPicks={setAfterPicks} locked={false} />
+              <div className="mt-4 flex justify-end">
+                <Button variant="primary" onClick={() => again.mutate()} loading={again.isPending}>See the difference</Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-[12px] font-medium uppercase tracking-[0.1em] text-muted">{trace.title}, before and after</div>
+              <div className="mt-2 flex items-baseline gap-3 font-display text-[28px] font-semibold tabular-nums">
+                <span className="text-muted">{before?.right ?? "–"}/{before?.total ?? after.total}</span>
+                <ArrowRight className="h-5 w-5 self-center text-muted" aria-label="to" />
+                <span className={before?.right != null && after.right > before.right ? "text-ok" : undefined}>{after.right}/{after.total}</span>
+              </div>
+              <p className="mt-1 text-[13px] text-muted">
+                {before?.right == null ? "Right after the fix."
+                  : after.right > before.right ? `Fixing ${root?.idea ?? "the root"} moved ${trace.title} from ${before.right} to ${after.right} right.`
+                    : after.right === before.right ? `The same as before: the gap may be in ${trace.title} itself too. Practise it next.`
+                      : `Lower than before: practise ${trace.title} next, and ask your coach about it.`}
+              </p>
+              <RetestQuestions part={after} picks={afterPicks} onPicks={setAfterPicks} locked />
+            </>
           )}
         </Card>
       )}

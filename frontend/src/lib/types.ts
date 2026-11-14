@@ -604,6 +604,8 @@ export interface RootProof {
   students: number; traces: number; with_root: number; root_rate: number | null; root_classes: { cls: number; traces: number }[];
   lessons: number; fixed: number; recheck_pass: number | null; median_minutes_to_fix: number | null;
   chains_built: number; reused: number | null; ai_usd: number; ai_usd_per_student: number | null;
+  /** the stuck topic itself, before the trace and after the fix, over the students who did both (percent right) */
+  retest_pairs: number; retest_before: number | null; retest_after: number | null;
 }
 export interface AdminUser extends Money {
   id: number; name: string; email: string; plan: string; exam: string | null; joined: string | null; last_seen: string | null; lectures: number;
@@ -1155,9 +1157,12 @@ export interface GapLink {
   chapter_id: string; name: string; subject: string; cls: number | null; idea: string; why: string;
   check: GapCheck; result: "right" | "wrong" | null; choice?: number | null;
 }
+/** Questions on the stuck topic itself (from the question bank): three before the trace, three others after the fix. */
+export interface GapRetestPart { items: GapCheck[]; choices: (number | null)[] | null; right: number | null; total: number }
 export interface GapTrace {
   id: number; title: string; chapter_id: string; topic_id: string | null; status: "checking" | "found" | "clear" | "fixed";
   root: number | null; chain: GapLink[]; lesson: { md: string; check: GapCheck; result: "right" | "wrong" | null; choice?: number | null } | null;
+  retest: { before: GapRetestPart; after: GapRetestPart } | null;
   created_at: string | null;
 }
 export interface GapOverview {

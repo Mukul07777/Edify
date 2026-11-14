@@ -154,7 +154,8 @@ export const api = {
   gaps: () => get<GapOverview>("/gaps"),
   gapStart: (chapter_id: string, topic_id?: string | null) => post<GapTrace>("/gaps", { chapter_id, topic_id: topic_id ?? null }),
   gap: (id: number) => get<GapTrace>(`/gaps/${id}`),
-  gapAnswers: (id: number, answers: (number | null)[]) => post<GapTrace>(`/gaps/${id}/answers`, { answers }),
+  gapAnswers: (id: number, answers: (number | null)[], before?: (number | null)[]) => post<GapTrace>(`/gaps/${id}/answers`, { answers, before }),
+  gapAfter: (id: number, answers: (number | null)[]) => post<GapTrace>(`/gaps/${id}/after`, { answers }),
   gapLesson: (id: number) => post<GapTrace>(`/gaps/${id}/lesson`),
   gapCheck: (id: number, choice: number) => post<GapTrace>(`/gaps/${id}/check`, { choice }),
   // Edify Coach: the student's own study agent, on Maritime

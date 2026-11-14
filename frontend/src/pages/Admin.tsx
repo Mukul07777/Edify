@@ -31,6 +31,8 @@ const FEATURE_LABEL: Record<string, string> = {
 function RootProofCard({ r, usdInr }: { r: RootProof; usdInr: number }) {
   const show = (v: number | null, unit = "%") => (v === null ? "–" : `${v}${unit}`);
   const tiles: [string, string, string][] = [
+    ["Stuck topic, before → after", r.retest_before === null || r.retest_after === null ? "–" : `${r.retest_before}% → ${r.retest_after}%`,
+      `${r.retest_pairs} student${r.retest_pairs === 1 ? "" : "s"} answered both, 3 questions each`],
     ["Students who traced", String(r.students), `${r.traces} trace${r.traces === 1 ? "" : "s"} finished`],
     ["Found an earlier gap", show(r.root_rate), `${r.with_root} traces${r.root_classes.length ? ` · most often Class ${r.root_classes[0].cls}` : ""}`],
     ["Fix held on the re-check", show(r.recheck_pass), `${r.fixed} fixed of ${r.lessons} lessons`],
@@ -41,7 +43,7 @@ function RootProofCard({ r, usdInr }: { r: RootProof; usdInr: number }) {
   return (
     <Card>
       <CardHeader title="Root-cause tracing, measured" icon={<Layers className="h-4 w-4" />} subtitle="Real students' traces, from the app's own records. Nothing here is estimated." />
-      <div className="grid grid-cols-2 gap-3 p-5 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 p-5 md:grid-cols-4 xl:grid-cols-7">
         {tiles.map(([label, value, sub]) => (
           <div key={label} className="rounded-xl border border-line bg-bg-soft p-3">
             <div className="text-xs text-muted">{label}</div>
