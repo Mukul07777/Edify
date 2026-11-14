@@ -222,6 +222,14 @@ class Settings(BaseSettings):
     # Maritime's machine tier per coach: smart ($1/month, sleeps when idle and wakes on chat or schedule),
     # extended ($5) or always_on ($10). A coach works in short bursts, so smart is enough.
     MARITIME_COACH_TIER: str = "smart"
+    # The coaches' AI. Edify's own LLM key never goes onto a coach machine: a coach uses COACH_LLM_API_KEY (a
+    # separate key, ideally with its own limit at the provider) or, when that is empty, Maritime's metered LLM.
+    COACH_LLM_API_KEY: str = ""
+    # Each student's policy on Maritime, applied to their coach machine: an AI spend cap, a wake limit (so a loop or
+    # an abuser can't run up a bill) and compute minutes a month.
+    COACH_AI_CAP_CENTS: int = 100
+    COACH_WAKES_PER_HOUR: int = 20
+    COACH_COMPUTE_MINUTES: int = 600
     COACH_NIGHTLY_CRON: str = "30 21 * * *"  # the nightly review, India time
     # Admin panel (/admin): its own ID and password, separate from every student account.
     # Set them with set_admin.bat, which stores only a bcrypt hash of the password.

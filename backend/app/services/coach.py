@@ -81,11 +81,13 @@ def _provision(user: User) -> str:
     ext = end_user_id(user)
     _maritime("PUT", f"/api/v1/end-users/{ext}", {"displayName": user.full_name, "metadata": {"exam": user.exam_target or ""},
                                                   "tags": ["edify", "coach"]})
-    env = [] if settings.MARITIME_USE_LLM or not settings.llm_api_key else [
-        {"key": "LLM_API_KEY", "value": settings.llm_api_key, "isSecret": True},
+    _maritime("PUT", f"/api/v1/end-users/{ext}/policy", {"policy": policy()})  # set before the machine exists, so it never runs unguarded
+    own_key = bool(settings.COACH_LLM_API_KEY) and not settings.MARITIME_USE_LLM
+    env = [  # never Edify's own LLM key: a coach machine holds only a key meant for coaches, or none (Maritime's LLM)
+        {"key": "LLM_API_KEY", "value": settings.COACH_LLM_API_KEY, "isSecret": True},
         {"key": "LLM_BASE_URL", "value": settings.LLM_BASE_URL, "isSecret": False},
         {"key": "COACH_MODEL", "value": settings.LLM_MODEL.split(",")[0].strip(), "isSecret": False},
-    ]
+    ] if own_key else []
     agent = _maritime("POST", f"/api/v1/end-users/{ext}/agents", {
         "name": f"edify-coach-{user.id}",
         "description": f"Edify Coach for student {user.id}",
@@ -96,7 +98,7 @@ def _provision(user: User) -> str:
         "healthCheckPath": "/health",
         "hasWebUi": False,
         "idleTtlSeconds": 600,  # sleeps after 10 quiet minutes; chats and the nightly schedule wake it
-        "useMaritimeLlm": settings.MARITIME_USE_LLM,
+        "useMaritimeLlm": not own_key,
         "initialEnvVars": env,
     }, timeout=60.0)
     agent_id = str(agent.get("id") or "")
@@ -108,6 +110,12 @@ def _provision(user: User) -> str:
     except CoachError:
         log.info("nightly trigger not added for %s (the coach's own schedule still runs)", agent_id)
     return agent_id
+
+
+def policy() -> dict[str, int]:
+    """Each student's limits on Maritime: what their coach may spend on AI, how often it may wake, how long it may run."""
+    return {"llm_spend_cap_cents_per_month": settings.COACH_AI_CAP_CENTS, "wakes_per_hour": settings.COACH_WAKES_PER_HOUR,
+            "compute_minutes_cap": settings.COACH_COMPUTE_MINUTES, "idle_sleep_seconds": 600}
 
 
 # ---------------------------------------------------------------------------------------------------- talking to it
@@ -249,6 +257,53 @@ def revised(db: Session, user: User, lecture_id: str) -> dict[str, Any]:
     row = _require(db, user)
     _keep(db, row, _send(row, {"type": "revised", "lecture_id": lecture_id}))
     return view(db, user)
+
+
+SAMPLE_LECTURE = {
+    "id": "sample", "title": "Rotational motion (sample)", "subject": "Physics",
+    "summary_md": "## Torque\n- τ = r × F: the turning effect of a force\n- Net torque changes angular momentum: τ = dL/dt\n"
+                  "## Angular momentum\n- L = Iω for a rigid body\n- Conserved when the net external torque is zero (a skater pulls "
+                  "her arms in and spins faster)\n## Moment of inertia\n- I = Σ mr²; parallel axis theorem: I = I_cm + Md²",
+}
+
+
+def sample(db: Session, user: User) -> dict[str, Any]:
+    """A finished lecture the coach can work on right away, for a student (or a judge) who hasn't watched one yet."""
+    row = _require(db, user)
+    _send(row, snapshot(db, user))
+    _send(row, {"type": "lecture_done", "lecture": SAMPLE_LECTURE})
+    _keep(db, row, _send(row, {"type": "review", "reason": "asked"}))
+    return view(db, user)
+
+
+def fleet(db: Session) -> dict[str, Any]:
+    """Every student's coach, for the admin panel: Edify's own records, and Maritime's view of the machines (users,
+    activity and AI spend per student) when the coaches run there."""
+    rows = db.scalars(select(CoachAgent).order_by(CoachAgent.updated_at.desc()).limit(200)).all()
+    names = {u.id: u.full_name for u in db.scalars(select(User).where(User.id.in_([r.user_id for r in rows])))} if rows else {}
+    out: dict[str, Any] = {
+        "mode": mode(), "tier": settings.MARITIME_COACH_TIER, "policy": policy(),
+        "coaches": [{"user_id": r.user_id, "name": names.get(r.user_id, "?"), "mode": r.mode, "agent_id": r.agent_id, "status": r.status,
+                     "lectures": (r.state or {}).get("lectures_seen", 0), "reviews": (r.state or {}).get("reviews", 0),
+                     "synced_at": iso(r.synced_at)} for r in rows],
+        "maritime": None, "maritime_error": None,
+    }
+    if settings.MARITIME_API_KEY:
+        try:
+            summary = _maritime("GET", "/api/v1/end-user-summary?days=14")
+            people = _maritime("GET", "/api/v1/end-users?externalIdPrefix=edify_&limit=100&sort=activity")
+            out["maritime"] = {
+                "total": summary.get("totalUsers", 0), "active_7d": summary.get("activeUsers7d", 0), "messages": summary.get("messages", 0),
+                "days": [{"day": d["day"], "active": d.get("activeUsers", 0), "messages": d.get("messages", 0), "ai_cents": d.get("aiCents", 0)}
+                         for d in summary.get("days", [])],
+                "users": [{"external_id": p["externalId"], "name": p.get("displayName"), "agents": p.get("agentCount", 0),
+                           "agent_status": [a.get("status") for a in p.get("agents", [])], "messages": p.get("messageCount", 0),
+                           "ai_cents_30d": p.get("aiSpendCents30d", 0), "last_active": p.get("lastActiveAt"),
+                           "activity_14d": p.get("activity14d", [])} for p in people.get("items", [])],
+            }
+        except CoachError as exc:
+            out["maritime_error"] = str(exc)
+    return out
 
 
 def _require(db: Session, user: User) -> CoachAgent:
