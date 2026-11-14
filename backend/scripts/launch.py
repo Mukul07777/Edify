@@ -81,7 +81,35 @@ def open_when_ready(port: int, url: str) -> None:
     print("  ! The server did not become healthy within 60 s — see the messages above.")
 
 
+def start_local_coach() -> None:
+    """Edify Coach on this PC (MARITIME_COACH_URL=http://127.0.0.1:<port>): the same agent Maritime runs, started
+    alongside Edify and stopped with it. Each student's memory is kept apart under backend/storage/coach."""
+    from urllib.parse import urlparse
+
+    url = urlparse(settings.MARITIME_COACH_URL)
+    if url.hostname not in ("127.0.0.1", "localhost") or (settings.MARITIME_API_KEY and settings.MARITIME_COACH_REPO):
+        return  # on Maritime, or a coach somewhere else: nothing to start here
+    port = url.port or 8787
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1):
+            print(f"  Edify Coach is already running on port {port}")
+            return
+    except Exception:
+        pass
+    import atexit
+    import subprocess
+
+    server = BACKEND.parent / "agents" / "edify-coach" / "server.py"
+    env = {**os.environ, "PORT": str(port), "COACH_DATA": str(BACKEND / "storage" / "coach"),
+           "LLM_API_KEY": settings.llm_api_key, "LLM_BASE_URL": settings.LLM_BASE_URL,
+           "COACH_MODEL": settings.LLM_MODEL.split(",")[0].strip()}
+    proc = subprocess.Popen([sys.executable, str(server)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    atexit.register(proc.terminate)
+    print(f"  Edify Coach   : on this PC (port {port}); set MARITIME_COACH_REPO to run it on Maritime")
+
+
 def main() -> None:
+    start_local_coach()
     preferred = int(os.environ.get("PORT") or settings.PORT)
     running = edify_health(preferred)
     if running and running.get("build") == fingerprint():

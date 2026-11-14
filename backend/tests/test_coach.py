@@ -95,6 +95,12 @@ def test_a_coach_on_this_pc(client, agent, monkeypatch):
     answer = client.post("/api/coach/ask", headers=h, json={"question": "What should I revise first?"}).json()["answer"]
     assert answer  # offline, the coach still answers (and says the AI is away)
 
+    # one coach on this PC serves every student, but never mixes them: a second student starts with nothing
+    other = _register(client, "neha.local@example.com")
+    theirs = client.post("/api/coach/enable", headers=other).json()["state"]
+    assert theirs["packs"] == [] and theirs["lectures_seen"] == 0
+    assert client.get("/api/coach", headers=h).json()["state"]["lectures_seen"] == 1
+
 
 def test_each_student_gets_their_own_agent_on_maritime(client, agent, monkeypatch):
     mod, _ = agent

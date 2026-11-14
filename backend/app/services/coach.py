@@ -130,6 +130,8 @@ def _reply(raw: Any) -> dict[str, Any]:
 
 
 def _send(row: CoachAgent, event: dict[str, Any]) -> dict[str, Any]:
+    # whose memory: on Maritime each machine holds one student anyway; a coach on this PC serves them all
+    event = {**event, "student_id": f"edify_{row.user_id}"}
     message = json.dumps(event, ensure_ascii=False, default=str)
     if row.mode == "local":
         try:
