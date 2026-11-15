@@ -114,7 +114,7 @@ function Chain({ trace }: { trace: GapTrace }) {
             <div className="mt-4 flex gap-2 text-[14px]"><CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><Markdown>{l.check.q}</Markdown></div>
             <Options check={l.check} value={checking ? picks[i] : l.choice} locked={!checking}
               onPick={(c) => setPicks((p) => p.map((v, j) => (j === i ? c : v)))} />
-            {!checking && l.check.explain && <p className="mt-2 text-[12.5px] text-muted">{l.check.explain}</p>}
+            {!checking && l.check.explain && <Markdown className="mt-2 text-[12.5px] text-muted">{l.check.explain}</Markdown>}
           </Card>
         </div>
       ))}
