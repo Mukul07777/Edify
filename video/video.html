@@ -1,0 +1,627 @@
+<!doctype html>
+<!-- The demo video as a page: seek(t) draws the picture for second t, and render.mjs photographs it frame by frame.
+     Open with ?t=42 to look at one moment, or ?play=1 to watch it roughly in real time (no sound). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Edify demo video</title>
+<style>
+@font-face { font-family: "Fraunces"; src: url("../frontend/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: "Fraunces"; src: url("../frontend/node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2") format("woff2"); font-weight: 100 900; font-style: italic; }
+@font-face { font-family: "Geist"; src: url("../frontend/node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Geist Mono"; src: url("../frontend/node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+:root { --stone: #f4f3ef; --ink: #121211; --muted: #6b6a65; --hl: #4b55c9; --amber: #d07a1c; --ok: #2f7d4a; --bad: #c2353a; --night: #100f0d; --cream: #f4ece0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #000; overflow: hidden; }
+body { font-family: "Geist", "Nirmala UI", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+#stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--stone); }
+.scene { position: absolute; inset: 0; overflow: hidden; display: none; }
+.scene.light { background: var(--stone); color: var(--ink); }
+.scene.dark { background: var(--night); color: var(--cream); }
+.blob { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+.light .blob.b1 { width: 900px; height: 900px; left: -260px; top: -320px; background: #f3dcc8; opacity: .75; }
+.light .blob.b2 { width: 800px; height: 800px; right: -240px; bottom: -340px; background: #dcdcf6; opacity: .8; }
+.dark .blob.b1 { width: 900px; height: 900px; left: -300px; top: -360px; background: #2b2f86; opacity: .5; }
+.dark .blob.b2 { width: 820px; height: 820px; right: -280px; bottom: -380px; background: #7a3414; opacity: .42; }
+.abs { position: absolute; }
+.serif { font-family: "Fraunces", Georgia, serif; }
+.caps { font: 600 15px "Geist"; letter-spacing: .2em; text-transform: uppercase; }
+em { font-style: italic; }
+
+/* ---------- a browser window showing a filmed screen ---------- */
+.win { position: absolute; border-radius: 18px; background: #fff; overflow: hidden; transform-origin: 50% 50%;
+  box-shadow: 0 50px 130px -30px rgba(18,18,17,.42), 0 12px 30px -12px rgba(18,18,17,.18), 0 0 0 1px rgba(18,18,17,.09); }
+.dark .win { box-shadow: 0 50px 130px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(246,239,227,.14); }
+.win .bar { height: 40px; background: #eceae4; display: flex; align-items: center; gap: 8px; padding: 0 16px; position: relative; }
+.win .bar i { width: 12px; height: 12px; border-radius: 50%; background: #d3d1ca; }
+.win .bar i:nth-child(1) { background: #ec6a5e; } .win .bar i:nth-child(2) { background: #f4bf4f; } .win .bar i:nth-child(3) { background: #61c554; }
+.win .url { position: absolute; left: 50%; top: 7px; transform: translateX(-50%); font: 500 13.5px "Geist"; color: #6b6a65; background: #f8f7f4; padding: 5px 22px; border-radius: 99px; white-space: nowrap; }
+.win .vp { position: relative; overflow: hidden; background: var(--stone); }
+.win .cam { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; transform-origin: 0 0; }
+.win .pg { position: absolute; left: 0; top: 0; width: 1440px; }
+.win .pg img { display: block; width: 1440px; }
+.win .strip { position: absolute; overflow: hidden; }
+.win .strip img { position: absolute; top: 0; width: 1440px; height: 810px; }
+.win .hls { position: absolute; left: 0; top: 0; width: 1440px; height: 1px; }
+.hl { position: absolute; border-radius: 22px; opacity: 0; --c: var(--hl); --dim: 0;
+  box-shadow: 0 0 0 4px var(--c), 0 0 0 12px color-mix(in srgb, var(--c) 22%, transparent), 0 0 0 4000px rgba(18,18,17,var(--dim)); }
+.hl.amber { --c: var(--amber); } .hl.ok { --c: var(--ok); } .hl.bad { --c: var(--bad); }
+.note { position: absolute; opacity: 0; white-space: nowrap; font: 600 19px "Geist"; padding: 9px 18px; border-radius: 99px; background: var(--ink); color: #fff; box-shadow: 0 12px 30px -8px rgba(18,18,17,.5); }
+.note.ok { background: var(--ok); } .note.amber { background: var(--amber); } .note.hl { background: var(--hl); }
+.cur { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; z-index: 9; }
+.cur svg { position: absolute; left: -4px; top: -3px; width: 34px; height: 34px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
+.cur .rip { position: absolute; left: -32px; top: -32px; width: 64px; height: 64px; border-radius: 50%; border: 4px solid var(--hl); opacity: 0; }
+
+/* ---------- labels, panels ---------- */
+.tag { position: absolute; opacity: 0; white-space: nowrap; font: 600 22px "Geist"; padding: 12px 22px; border-radius: 99px; background: var(--ink); color: #fff; box-shadow: 0 18px 40px -12px rgba(18,18,17,.55); }
+.tag.hl { background: var(--hl); } .tag.amber { background: var(--amber); } .tag.ok { background: var(--ok); } .tag.paper { background: #fff; color: var(--ink); box-shadow: 0 18px 40px -12px rgba(18,18,17,.35), 0 0 0 1px rgba(18,18,17,.08); }
+.tag small { font: 500 15px "Geist"; opacity: .7; margin-left: 8px; }
+.panel { position: absolute; border-radius: 26px; background: rgba(18,18,17,.94); color: #fff; padding: 30px; opacity: 0; box-shadow: 0 40px 90px -30px rgba(18,18,17,.7); }
+.panel.paper { background: #fff; color: var(--ink); box-shadow: 0 40px 90px -30px rgba(18,18,17,.45), 0 0 0 1px rgba(18,18,17,.08); }
+.pillrow { display: flex; flex-direction: column; gap: 12px; }
+.cpill { font: 600 20px "Geist"; padding: 13px 20px; border-radius: 16px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); opacity: 0; }
+.cpill.root { background: var(--amber); border-color: transparent; font-size: 24px; text-align: center; padding: 18px 20px; }
+.stat { flex: 1; border-radius: 18px; background: rgba(255,255,255,.08); padding: 16px 18px; opacity: 0; }
+.stat b { display: block; font: 600 54px/1 "Fraunces"; } .stat span { font: 500 16px "Geist"; opacity: .75; }
+
+/* ---------- heads-up: logo, section, progress, captions ---------- */
+#hud { position: absolute; inset: 0; pointer-events: none; z-index: 50; }
+#hud .brand { position: absolute; left: 36px; top: 10px; display: flex; align-items: center; gap: 10px; font: 600 22px "Geist"; letter-spacing: -.01em; }
+#hud .brand img { width: 30px; height: 30px; }
+#hud .sec { position: absolute; right: 36px; top: 11px; font: 600 14px "Geist"; letter-spacing: .2em; text-transform: uppercase; padding: 7px 16px; border-radius: 99px; background: var(--ink); color: #fff; }
+#hud .sec b { color: #b9bdf2; margin-right: 8px; }
+#prog { position: absolute; left: 0; bottom: 0; height: 6px; background: var(--hl); z-index: 60; }
+#cap { position: absolute; left: 50%; bottom: 34px; z-index: 55; max-width: 1560px; text-align: center; font: 500 35px/1.32 "Geist", "Nirmala UI"; color: #fff;
+  background: rgba(14,14,13,.9); padding: 15px 34px 17px; border-radius: 22px; box-shadow: 0 20px 50px -18px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1); opacity: 0; white-space: nowrap; }
+
+/* ---------- hook ---------- */
+.hk-card { left: 580px; top: 300px; width: 760px; padding: 44px 50px 46px; border-radius: 30px; background: #1c1a17; border: 1px solid rgba(246,239,227,.14); box-shadow: 0 50px 120px -40px #000; }
+.hk-card .caps { color: #a4988a; } .hk-card .ttl { font: 600 84px/1.05 "Fraunces"; margin: 16px 0 26px; letter-spacing: -.02em; }
+.pill { display: inline-block; font: 600 22px "Geist"; padding: 10px 20px; border-radius: 99px; }
+.pill.bad { background: rgba(240,137,141,.16); color: #f0898d; border: 1px solid rgba(240,137,141,.4); }
+.qm { font: 600 120px "Fraunces"; color: #e8b46a; opacity: 0; }
+.hk-re { left: 1040px; width: 600px; padding: 26px 30px; border-radius: 22px; background: #1c1a17; border: 1px dashed rgba(246,239,227,.3); font: 500 34px "Geist"; display: flex; align-items: center; gap: 20px; opacity: 0; }
+.hk-re .ic { width: 54px; height: 54px; border-radius: 50%; background: rgba(246,239,227,.1); display: grid; place-items: center; font-size: 32px; }
+.hk-h1 { left: 0; right: 0; top: 760px; text-align: center; font: 500 72px "Fraunces"; opacity: 0; }
+.hk-h1 em { color: #e8b46a; }
+.node { position: absolute; left: 250px; width: 620px; padding: 24px 30px; border-radius: 24px; background: #1c1a17; border: 1px solid rgba(246,239,227,.16); opacity: 0; }
+.node .caps { color: #a4988a; font-size: 14px; } .node .nm { font: 600 44px "Fraunces"; margin-top: 6px; }
+.node.gap { border: 2px solid #e8b46a; background: #2a2010; }
+.node .stamp { position: absolute; right: -24px; top: -20px; font: 700 20px "Geist"; letter-spacing: .14em; padding: 9px 18px; border-radius: 99px; background: #e8b46a; color: #1a1205; transform: rotate(6deg); }
+.node .sym { position: absolute; right: 26px; top: 30px; font: 600 16px "Geist"; letter-spacing: .16em; text-transform: uppercase; color: #f0898d; border: 1px solid rgba(240,137,141,.5); padding: 6px 12px; border-radius: 99px; }
+
+/* ---------- problem ---------- */
+.board { left: 150px; top: 150px; width: 770px; height: 500px; border-radius: 26px; background: #1d3229; border: 10px solid #3b2a1c; padding: 34px 40px; color: #eef3ea; font: 500 46px/1.42 "Fraunces"; font-style: italic; box-shadow: 0 50px 100px -40px #000; }
+.board .t { font-style: normal; text-decoration: underline; text-underline-offset: 8px; }
+.nbook { left: 1000px; top: 150px; width: 770px; height: 500px; border-radius: 12px; padding: 30px 44px 30px 90px; color: #26334f; font: 500 44px/62px "Fraunces"; font-style: italic;
+  background: repeating-linear-gradient(#fbfaf5 0 60px, #cfd8e6 60px 62px); box-shadow: 0 50px 100px -40px #000; }
+.nbook::before { content: ""; position: absolute; left: 66px; top: 0; bottom: 0; width: 2px; background: #e7a3a3; }
+.meter { left: 150px; top: 716px; width: 1620px; display: flex; gap: 40px; }
+.meter > div { flex: 1; } .meter .caps { color: #a4988a; display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 17px; }
+.meter .trk { height: 16px; border-radius: 99px; background: rgba(246,239,227,.12); overflow: hidden; } .meter .fill { height: 100%; border-radius: 99px; width: 0; }
+.blk { position: absolute; left: 250px; width: 470px; height: 76px; border-radius: 16px; background: #1c1a17; border: 1px solid rgba(246,239,227,.18); display: flex; align-items: center; padding: 0 26px; font: 600 28px "Geist"; opacity: 0; }
+.blk.top { background: #f4ece0; color: #15110e; } .blk.miss { background: transparent; border: 2.5px dashed #f0898d; color: #f0898d; }
+.aid { position: absolute; font: 700 22px "Geist"; padding: 11px 22px; border-radius: 10px; background: #f1d7b0; color: #5a3a0a; opacity: 0; box-shadow: 0 10px 20px -8px #000; }
+
+/* ---------- intro / close ---------- */
+.word { font: 700 300px/1 "Fraunces"; letter-spacing: -.035em; white-space: nowrap; }
+.word span { display: inline-block; }
+.chip { position: absolute; opacity: 0; font: 600 24px "Geist"; padding: 14px 24px; border-radius: 18px; background: #fff; box-shadow: 0 22px 44px -18px rgba(18,18,17,.4), 0 0 0 1px rgba(18,18,17,.07); display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.chip i { width: 14px; height: 14px; border-radius: 50%; background: var(--hl); display: block; }
+
+/* ---------- languages ---------- */
+.lang { display: inline-block; font: 600 30px "Geist", "Nirmala UI"; padding: 12px 26px; border-radius: 99px; background: #fff; margin: 0 7px; box-shadow: 0 0 0 1px rgba(18,18,17,.1); opacity: 0; }
+
+/* ---------- more ---------- */
+.tile { position: absolute; width: 540px; opacity: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 40px 80px -30px #000, 0 0 0 1px rgba(246,239,227,.16); }
+.tile img { display: block; width: 540px; }
+.tlab { position: absolute; opacity: 0; font: 600 24px "Geist"; padding: 10px 20px; border-radius: 99px; background: #f4ece0; color: #15110e; box-shadow: 0 14px 30px -10px #000; white-space: nowrap; }
+.phone { position: absolute; width: 300px; height: 650px; border-radius: 42px; border: 9px solid #26221d; background: #000; overflow: hidden; opacity: 0; box-shadow: 0 50px 100px -30px #000, 0 0 0 1px rgba(246,239,227,.2); }
+.phone img { width: 100%; display: block; }
+
+/* ---------- cost ---------- */
+.dots { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+.dots i { width: 38px; height: 38px; border-radius: 50%; background: rgba(18,18,17,.1); display: block; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="scenes"></div>
+  <div id="hud"><div class="brand"><img src="../frontend/public/logo-mark.png"><span>Edify</span></div><div class="sec"><b></b><span></span></div></div>
+  <div id="cap"></div>
+  <div id="prog"></div>
+</div>
+<script src="data.js"></script>
+<script>
+"use strict";
+const D = window.DATA, stage = document.getElementById("stage"), host = document.getElementById("scenes");
+const E = {
+  lin: (t) => t, out3: (t) => 1 - Math.pow(1 - t, 3), out5: (t) => 1 - Math.pow(1 - t, 5),
+  inout: (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  back: (t) => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2),
+};
+const cl = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const P = (t, a, b, e = E.out3) => e(cl((t - a) / (b - a)));          // 0 → 1 between times a and b
+const mix = (a, b, k) => a + (b - a) * k;
+const h = (tag, cls, html, parent) => { const el = document.createElement(tag); if (cls) el.className = cls; if (html) el.innerHTML = html; (parent || host).appendChild(el); return el; };
+/** opacity + transform in one go; the transform is always rewritten so nothing lingers from an earlier frame */
+function S(el, o) {
+  if (o.o !== undefined) el.style.opacity = cl(o.o);
+  el.style.transform = `translate(${o.x || 0}px,${o.y || 0}px) scale(${o.s === undefined ? 1 : o.s}) rotate(${o.r || 0}deg)`;
+}
+/** an element arriving: fades up, settles with a small overshoot */
+function pop(el, t, at, { dur = .55, y = 34, s = .86, x = 0, r = 0, out = null, outDur = .3 } = {}) {
+  const k = P(t, at, at + dur, E.back), f = P(t, at, at + dur * .6), gone = out === null ? 0 : P(t, out, out + outDur, E.inout);
+  S(el, { o: f * (1 - gone), y: mix(y, 0, k) - gone * 20, x: mix(x, 0, k), s: mix(s, 1, k) * (1 - gone * .06), r });
+}
+const img = (name) => `<img data-src="assets/${name}.jpg">`;
+
+// ------------------------------------------------------------------ the browser window
+class Win {
+  constructor(parent, { shots, x = 240, y = 52, scale = 1, url = "edify.app" }) {
+    this.scale = scale; this.first = shots[0];
+    const m = D.shots[shots[0]];
+    this.el = h("div", "win", "", parent);
+    Object.assign(this.el.style, { left: x + "px", top: y + "px", width: 1440 * scale + "px" });
+    this.el.innerHTML = `<div class="bar"><i></i><i></i><i></i><span class="url">${url}</span></div><div class="vp" style="height:${810 * scale}px"><div class="cam"></div></div>`;
+    this.cam = this.el.querySelector(".cam");
+    this.pages = {};
+    for (const s of shots) {
+      const tall = D.shots[s].tallH > 810;
+      this.pages[s] = h("div", "pg", img(tall ? s + "_tall" : s), this.cam);
+      this.pages[s].style.opacity = s === shots[0] ? 1 : 0;
+    }
+    if (m.region) {   // the sidebar and the top bar stay put while the page scrolls under them
+      const r = m.region;
+      const side = h("div", "strip", img(shots[0]), this.cam); Object.assign(side.style, { left: 0, top: 0, width: r.x + "px", height: "810px" });
+      const top = h("div", "strip", img(shots[0]), this.cam); Object.assign(top.style, { left: r.x + "px", top: 0, width: 1440 - r.x + "px", height: r.y + "px" });
+      top.firstChild.style.left = -r.x + "px";
+    }
+    this.hls = h("div", "hls", "", this.cam);
+    this.cur = h("div", "cur", `<svg viewBox="0 0 24 24"><path d="M4 2l15 9.5-6.6 1.6 4 7.3-2.9 1.6-4-7.4L4 19z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg><span class="rip"></span>`, this.cam);
+    this.set({});
+  }
+  hl(rect, cls = "", grow = 8) {
+    const el = h("div", "hl " + cls, "", this.hls);
+    Object.assign(el.style, { left: rect.x - grow + "px", top: rect.y - grow + "px", width: rect.w + grow * 2 + "px", height: rect.h + grow * 2 + "px" });
+    return el;
+  }
+  note(x, y, text, cls = "") { const el = h("div", "note " + cls, text, this.hls); Object.assign(el.style, { left: x + "px", top: y + "px" }); return el; }
+  /** scroll: page px; k: zoom; cx, cy: what the zoom centres on, in the window's own 1440x810 */
+  set({ scroll = 0, k = 1, cx = 720, cy = 405, show = null }) {
+    const zx = cl(cx - 720 / k, 0, 1440 - 1440 / k), zy = cl(cy - 405 / k, 0, 810 - 810 / k);
+    this.cam.style.transform = `scale(${this.scale * k}) translate(${-zx}px,${-zy}px)`;
+    for (const [name, pg] of Object.entries(this.pages)) {
+      pg.style.transform = `translateY(${-Math.max(0, scroll)}px)`;   // past a page's end is fine: the next state fades in over it
+      if (show) pg.style.opacity = show[name] ?? 0;
+    }
+    this.hls.style.transform = `translateY(${-scroll}px)`;
+  }
+  /** the pointer at (x, y) in the window's 1440x810; click: 0 → 1 draws the ring */
+  point(x, y, o, click = 0) {
+    this.cur.style.opacity = o; this.cur.style.transform = `translate(${x}px,${y}px) scale(${1 - .14 * Math.sin(Math.PI * cl(click * 2))})`;
+    const rip = this.cur.querySelector(".rip"); rip.style.opacity = click > 0 && click < 1 ? 1 - click : 0; rip.style.transform = `scale(${.3 + click * 1.5})`;
+  }
+}
+/** highlight box: appears, optionally dims the rest of the page */
+const glow = (el, t, at, { out = null, dim = 0 } = {}) => {
+  const k = P(t, at, at + .45, E.back), gone = out === null ? 0 : P(t, out, out + .3);
+  el.style.opacity = P(t, at, at + .25) * (1 - gone); el.style.transform = `scale(${mix(1.06, 1, k)})`; el.style.setProperty("--dim", dim * P(t, at, at + .5) * (1 - gone));
+};
+
+// ------------------------------------------------------------------ scenes
+const scenes = [];
+function scene(id, theme, section, build) {
+  const data = D.scenes.find((s) => s.id === id);
+  const el = h("div", `scene ${theme}`, `<div class="blob b1"></div><div class="blob b2"></div>`);
+  const at = (i, f = 0) => data.lines[i].t0 + data.lines[i].dur * f;      // a moment inside line i, as a fraction of it
+  scenes.push({ id, el, data, theme, section, draw: build(el, data, at) });
+}
+
+// 1. hook: the symptom, the re-teaching, the real gap
+scene("hook", "dark", null, (el, d, at) => {
+  const card = h("div", "abs hk-card", `<div class="caps">JEE · Physics · Class 11</div><div class="ttl">Rotational Motion</div><span class="pill bad">✕ &nbsp;samajh nahi aa raha</span>`, el);
+  const pill = card.querySelector(".pill");
+  const qs = [[420, 250, -14], [1420, 210, 12], [1500, 560, 20], [330, 600, -8], [1250, 90, 6]].map(([x, y, r]) => { const q = h("div", "abs qm", "?", el); q.style.left = x + "px"; q.style.top = y + "px"; q.dataset.r = r; return q; });
+  const res = ["Lecture, phir se", "Notes, phir se", "Sawaal, phir se"].map((txt, i) => { const r = h("div", "abs hk-re", `<span class="ic">↻</span>${txt}`, el); r.style.top = 250 + i * 130 + "px"; return r; });
+  const h1 = h("div", "abs hk-h1", `Wahi chapter. <em>Dobara.</em>`, el);
+  const chain = h("div", "abs", "", el); Object.assign(chain.style, { inset: 0, opacity: 0 });
+  chain.innerHTML = `<svg class="abs" style="left:0;top:0" width="1920" height="1080"><path id="hkline" d="M560 300 V780" stroke="#e8b46a" stroke-width="4" stroke-dasharray="10 12" fill="none"/></svg>
+    <div class="node" style="top:150px"><div class="caps">JEE · Class 11</div><div class="nm">Rotational Motion</div><span class="sym">symptom</span></div>
+    <div class="node" style="top:420px"><div class="caps">Class 11 · Mathematics</div><div class="nm">Vectors &amp; cross product</div></div>
+    <div class="node gap" style="top:690px"><div class="caps" style="color:#e8b46a">Class 10 · Mathematics</div><div class="nm">Trigonometry</div><span class="stamp">ASLI GAP</span></div>
+    <div class="abs" id="hkr" style="left:1000px;top:330px;width:820px"><div class="caps" style="color:#a4988a;font-size:20px">Asli dikkat</div>
+      <div class="serif" id="hkbig" style="font:600 118px/1.04 Fraunces;letter-spacing:-.025em;margin-top:18px">Class 10 ki<br><em style="color:#e8b46a">trigonometry.</em></div>
+      <div id="hksub" style="font:500 30px Geist;color:#a4988a;margin-top:30px">Rotational Motion sirf symptom tha.</div></div>`;
+  const nodes = [...chain.querySelectorAll(".node")], line = chain.querySelector("svg"), big = chain.querySelector("#hkbig"), sub = chain.querySelector("#hksub"), kick = chain.querySelector("#hkr .caps");
+  return (t) => {
+    const a = at(0), b = at(1), c = at(2), away = P(t, c - .3, c + .15, E.inout);
+    const k = P(t, a - .25, a + .5, E.back), move = P(t, b, b + .7, E.inout), shake = P(t, at(0, .62), at(0, .7)) * (1 - P(t, at(0, .92), at(0, 1)));
+    S(card, { o: P(t, a - .25, a + .15) * (1 - away), x: mix(0, -400, move) + Math.sin(t * 42) * 7 * shake, y: mix(60, 0, k) - away * 40, s: mix(.8, 1, k) * mix(1, .84, move) });
+    pop(pill, t, at(0, .6), { y: 0, s: .5 });
+    qs.forEach((q, i) => { const on = at(0, .5) + i * .16; S(q, { o: P(t, on, on + .3) * .9 * (1 - P(t, b - .1, b + .3)), y: mix(40, 0, P(t, on, on + .6, E.back)) + Math.sin(t * 2 + i) * 12, r: +q.dataset.r + Math.sin(t * 1.5 + i) * 5, s: mix(.3, 1, P(t, on, on + .5, E.back)) }); });
+    res.forEach((r, i) => { const on = b + .3 + i * .42; S(r, { o: P(t, on, on + .3) * (1 - away), x: mix(120, 0, P(t, on, on + .6, E.out5)), y: -away * 40 }); r.querySelector(".ic").style.transform = `rotate(${(t - on) * 200}deg)`; });
+    S(h1, { o: P(t, at(1, .45), at(1, .6)) * (1 - away), y: mix(40, 0, P(t, at(1, .45), at(1, .8), E.out5)) });
+    chain.style.opacity = P(t, c - .05, c + .3);
+    nodes.forEach((n, i) => pop(n, t, c + .1 + i * .55, { x: -60, y: 0 }));
+    line.style.clipPath = `inset(0 0 ${100 - 100 * P(t, c + .3, c + 1.5, E.inout)}% 0)`;
+    nodes[2].style.boxShadow = `0 0 ${40 + 30 * Math.sin(t * 5)}px ${P(t, c + 1.4, c + 1.9) * 8}px rgba(232,180,106,${.35 * P(t, c + 1.4, c + 1.9)})`;
+    S(kick, { o: P(t, c + .5, c + .9) });
+    S(big, { o: P(t, at(2, .5), at(2, .62)), y: mix(50, 0, P(t, at(2, .5), at(2, .8), E.out5)) });
+    S(sub, { o: P(t, at(2, .78), at(2, .95)) });
+  };
+});
+
+// 2. problem: copying the board, and the gap nobody looks for
+scene("problem", "dark", null, (el, d, at) => {
+  const lines = ["Rotational Motion", "τ = r × F", "L = Iω", "τ = dL/dt", "I = Σ mr²"];
+  const one = h("div", "abs", "", el); one.style.inset = 0;
+  const board = h("div", "abs board", lines.map((l, i) => `<div class="${i ? "" : "t"}"></div>`).join(""), one);
+  const paper = h("div", "abs nbook", lines.map(() => `<div></div>`).join(""), one);
+  const arrow = h("div", "abs serif", "copy →", one); Object.assign(arrow.style, { left: "880px", top: "350px", width: "160px", textAlign: "center", font: "italic 500 34px Fraunces", color: "#e8b46a" });
+  const meter = h("div", "abs meter", `<div><div class="caps"><span>Board copy</span><b id="m1">0%</b></div><div class="trk"><div class="fill" style="background:#e8b46a"></div></div></div>
+    <div><div class="caps"><span>Samajh</span><b id="m2">0%</b></div><div class="trk"><div class="fill" style="background:#f0898d"></div></div></div>`, one);
+  const fills = meter.querySelectorAll(".fill"), nums = meter.querySelectorAll("b");
+  const two = h("div", "abs", "", el); two.style.inset = 0;
+  const names = ["Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12", "JEE / NEET"];
+  const blks = names.map((n, i) => { const b = h("div", "blk" + (i === 6 ? " top" : i === 3 ? " miss" : ""), i === 3 ? `${n} &nbsp;·&nbsp; gap reh gaya` : n, two); b.style.top = 742 - i * 86 + "px"; return b; });
+  const aids = [["Extra class", 590, 200, -9], ["Re-test", 470, 262, 7], ["Aur notes", 660, 270, -4]].map(([txt, x, y, r]) => { const a = h("div", "aid", txt, two); a.style.left = x + "px"; a.style.top = y + "px"; a.dataset.r = r; return a; });
+  const say = h("div", "abs", `<div class="serif" style="font:600 84px/1.08 Fraunces;letter-spacing:-.02em">Sab <em>symptom</em><br>theek karte hain.</div><div class="serif" id="pb2" style="font:italic 600 84px/1.2 Fraunces;color:#e8b46a;margin-top:26px">Beemari nahi.</div>`, two);
+  Object.assign(say.style, { left: "900px", top: "330px", width: "900px" });
+  return (t) => {
+    const a = at(0), b = at(1), sw = P(t, b - .35, b + .1, E.inout);
+    S(one, { o: 1 - sw, y: -sw * 40 });
+    pop(board, t, a - .3, { x: -80, y: 0 }); pop(paper, t, a - .1, { x: 80, y: 0 });
+    const total = lines.join("").length, typed = P(t, a, at(0, .92), E.lin) * total, copied = P(t, a + .7, at(0, 1) + .2, E.lin) * total;
+    let acc = 0;
+    lines.forEach((l, i) => { board.children[i].textContent = l.slice(0, Math.max(0, Math.round(typed - acc))); paper.children[i].textContent = l.slice(0, Math.max(0, Math.round(copied - acc))); acc += l.length; });
+    S(arrow, { o: P(t, a + .6, a + 1) * (.6 + .4 * Math.sin(t * 6)), x: Math.sin(t * 6) * 8 });
+    S(meter, { o: P(t, a + .4, a + .9), y: mix(30, 0, P(t, a + .4, a + 1)) });
+    const m1 = P(t, a + .7, at(0, 1), E.lin), m2 = .06 + .02 * Math.sin(t * 9);
+    fills[0].style.width = m1 * 100 + "%"; fills[1].style.width = m2 * 100 * P(t, a + .7, a + 1.4) + "%"; nums[0].textContent = Math.round(m1 * 100) + "%"; nums[1].textContent = Math.round(m2 * 100 * P(t, a + .7, a + 1.4)) + "%";
+    two.style.opacity = P(t, b - .1, b + .3);
+    const wob = Math.sin(t * 7) * 1.1 * P(t, at(1, .3), at(1, .45));
+    blks.forEach((k, i) => { const on = b + i * .09; S(k, { o: P(t, on, on + .25), y: mix(-50, 0, P(t, on, on + .5, E.back)), r: i > 3 ? wob : 0, x: i > 3 ? wob * 6 : 0 }); });
+    blks[3].style.opacity = P(t, b + .27, b + .5) * (.55 + .45 * Math.abs(Math.sin(t * 4)));
+    aids.forEach((k, i) => { const on = at(1, .5) + i * .28; S(k, { o: P(t, on, on + .12), s: mix(2.2, 1, P(t, on, on + .3, E.out5)), r: +k.dataset.r }); });
+    S(say, { o: P(t, at(1, .5), at(1, .62)), x: mix(60, 0, P(t, at(1, .5), at(1, .8), E.out5)) });
+    S(say.querySelector("#pb2"), { o: P(t, at(1, .82), at(1, .92)), y: mix(30, 0, P(t, at(1, .82), at(1, 1), E.out5)) });
+  };
+});
+
+// 3. intro: the name
+function wordmark(el, text) { const w = h("div", "abs word serif", [...text].map((c) => `<span>${c}</span>`).join(""), el); return [w, [...w.children]]; }
+scene("intro", "light", null, (el, d, at) => {
+  const logo = h("img", "abs", "", el); logo.dataset.src = "../frontend/public/logo-mark.png"; Object.assign(logo.style, { left: "888px", top: "150px", width: "144px", filter: "invert(1)" });
+  const ring = h("div", "abs", "", el); Object.assign(ring.style, { left: "860px", top: "122px", width: "200px", height: "200px", borderRadius: "50%", border: "3px solid #4b55c9" });
+  const [word, letters] = wordmark(el, "Edify"); Object.assign(word.style, { left: 0, right: 0, top: "290px", textAlign: "center" });
+  const tagline = h("div", "abs serif", "every lecture, understood.", el); Object.assign(tagline.style, { left: 0, right: 0, top: "640px", textAlign: "center", font: "italic 500 76px Fraunces" });
+  const chips = [["Board OCR", 170, 250, -5], ["Live notes", 1470, 220, 4], ["Pop quiz", 130, 610, 3], ["Root-cause tracing", 1400, 560, -3], ["AI coach", 330, 820, -2], ["8 languages", 1330, 810, 5]]
+    .map(([txt, x, y, r]) => { const c = h("div", "chip", `<i></i>${txt}`, el); c.style.left = x + "px"; c.style.top = y + "px"; c.dataset.r = r; return c; });
+  return (t) => {
+    pop(logo, t, .05, { s: .3, y: 0 });
+    S(ring, { o: P(t, .15, .3) * (1 - P(t, .3, 1.1)), s: mix(.6, 2.2, P(t, .15, 1.1, E.out5)) });
+    letters.forEach((l, i) => { const on = .25 + i * .07; S(l, { o: P(t, on, on + .2), y: mix(120, 0, P(t, on, on + .6, E.back)) }); });
+    S(tagline, { o: P(t, at(0, .5), at(0, .65)), y: mix(30, 0, P(t, at(0, .5), at(0, .9), E.out5)) });
+    chips.forEach((c, i) => { const on = .7 + i * .13; pop(c, t, on, { r: +c.dataset.r + Math.sin(t * 1.4 + i) * 1.5, y: 50 + Math.sin(t * 1.8 + i) * 6 * P(t, on + .5, on + 1) }); });
+  };
+});
+
+// 4. live lecture: the board read, notes written, a quiz; then what's left when the lecture ends
+scene("live", "light", "Live lecture", (el, d, at) => {
+  const hero = D.shots.hero, K = 1.3;
+  const demo = h("div", "abs", `<img id="heroimg" style="display:block;width:${hero.w * K}px;height:${hero.h * K}px">`, el);
+  Object.assign(demo.style, { left: (1920 - hero.w * K) / 2 + "px", top: "150px", borderRadius: "28px", overflow: "hidden", boxShadow: "0 50px 130px -30px rgba(18,18,17,.45), 0 0 0 1px rgba(18,18,17,.09)", transformOrigin: "50% 50%" });
+  const heroImg = demo.firstChild;
+  const src = [["YouTube", 300], ["Zoom / Meet", 500], ["Classroom ka board", 740]].map(([txt, x]) => { const c = h("div", "chip", `<i style="background:#c2353a"></i>${txt}`, el); c.style.left = x + "px"; c.style.top = "66px"; return c; });
+  const t1 = h("div", "tag hl", "EdifyOCR <small>apna model · board padh raha hai</small>", el); Object.assign(t1.style, { left: "300px", top: "790px" });
+  const t2 = h("div", "tag", "Exam-ready notes <small>apne aap</small>", el); Object.assign(t2.style, { left: "1180px", top: "210px" });
+  const t3 = h("div", "tag amber", "Pop quiz!", el); Object.assign(t3.style, { left: "1390px", top: "736px" });
+  const win = new Win(el, { shots: ["s_session"], x: 470, y: 92, scale: .86, url: "edify.app/library · Newton's laws and energy" });
+  const R = D.rects.s_session, hk = win.hl(R.key, "", 6), hf = win.hl(R.formula, "amber", 6);
+  const minis = [["s_formulas", "Formula book", 56, 330], ["s_flash", "Flashcards", 56, 620]].map(([shot, txt, x, y]) => {
+    const m = h("div", "tile", img(shot), el); Object.assign(m.style, { left: x + "px", top: y + "px", width: "380px" }); m.firstChild.style.width = "380px";
+    const l = h("div", "tlab", txt, el); Object.assign(l.style, { left: x + 20 + "px", top: y - 24 + "px", background: "#121211", color: "#fff" }); return [m, l];
+  });
+  return (t) => {
+    const a = at(0), b = at(1), c = at(2), flipT = cl((t - a) / (at(1, 1) - a)) * 10.4;
+    let i = 0; while (i < hero.times.length - 1 && hero.times[i + 1] <= flipT) i++;
+    const want = `assets/hero/${String(i).padStart(3, "0")}.jpg`; if (!heroImg.src.endsWith(want)) heroImg.src = want;
+    const zoom = P(t, b - .2, b + 1, E.inout), leave = P(t, c - .3, c + .5, E.inout);
+    S(demo, { o: P(t, 0, .4) * (1 - leave), y: mix(60, 0, P(t, 0, .7, E.out5)) - leave * 30, x: mix(0, -90, zoom) - leave * 500, s: mix(.94, 1, P(t, 0, .7, E.out5)) * mix(1, 1.1, zoom) * mix(1, .7, leave) });
+    src.forEach((s, k) => pop(s, t, at(0, .2 + k * .14), { y: -30, out: b - .1 }));
+    pop(t1, t, at(0, .62), { out: b + .2 }); pop(t2, t, at(1, .12), { out: c - .3 }); pop(t3, t, at(1, .78), { s: .4, out: c - .3 });
+    S(win.el, { o: P(t, c - .1, c + .3), x: mix(700, 0, P(t, c - .1, c + .7, E.out5)), s: mix(.94, 1, P(t, c - .1, c + .7, E.out5)) });
+    win.set({ scroll: mix(140, 600, P(t, c + .2, at(2, 1), E.inout)) });
+    glow(hk, t, at(2, .3), { out: at(2, .62) }); glow(hf, t, at(2, .62));
+    minis.forEach(([m, l], k) => { const on = at(2, .45 + k * .22); pop(m, t, on, { x: -80, y: 0, r: k ? 3 : -3 }); pop(l, t, on + .15, { y: 14 }); });
+  };
+});
+
+// 5. languages: the same lecture in Hinglish and in Hindi, and the rest
+scene("langs", "light", "Apni bhasha", (el, d, at) => {
+  const head = h("div", "abs", "", el); Object.assign(head.style, { left: 0, right: 0, top: "86px", textAlign: "center" });
+  const langs = ["English", "Hinglish", "हिंदी", "मराठी", "বাংলা", "தமிழ்", "తెలుగు", "ગુજરાતી"].map((l) => h("span", "lang", l, head));
+  const A = new Win(el, { shots: ["s_session"], x: 60, y: 236, scale: .62, url: "Hinglish" });
+  const B = new Win(el, { shots: ["h_session"], x: 968, y: 236, scale: .62, url: "हिंदी" });
+  return (t) => {
+    const a = at(0);
+    S(A.el, { o: P(t, 0, .4), x: mix(-200, 0, P(t, 0, .8, E.out5)), r: -1.2 }); S(B.el, { o: P(t, .15, .55), x: mix(200, 0, P(t, .15, .95, E.out5)), r: 1.2 });
+    const sc = mix(1380, 1820, P(t, .4, at(0, 1), E.inout)); A.set({ scroll: sc, k: 1.5, cx: 660, cy: 405 }); B.set({ scroll: sc - 60, k: 1.5, cx: 660, cy: 405 });
+    langs.forEach((l, i) => {
+      const on = i === 0 ? a - .1 : at(0, .36 + (i - 1) * .088), live = i > 0 && t >= on && (i === 7 || t < at(0, .36 + i * .088));
+      S(l, { o: P(t, on, on + .2), y: mix(26, 0, P(t, on, on + .45, E.back)), s: live ? 1.12 : 1 });
+      l.style.background = live ? "#4b55c9" : "#fff"; l.style.color = live ? "#fff" : "#121211";
+    });
+  };
+});
+
+// 6. silent tracing: three weak chapters in a mock, and what Edify noticed without asking anything
+scene("noticed", "light", "Silent tracing", (el, d, at) => {
+  const W1 = new Win(el, { shots: ["s_weak"], url: "edify.app/weak · mock test ke baad" });
+  const R1 = D.rects.s_weak, test = W1.hl(R1.tests, "", 6), cards = [0, 238, 476].map((dy) => W1.hl({ ...R1.plan, y: R1.plan.y + dy }, "bad", 4));
+  const W2 = new Win(el, { shots: ["s_roots"], url: "edify.app/roots" });
+  const R2 = D.rects.s_roots, spot = W2.hl(R2.noticed, "amber", 6);
+  const panel = h("div", "panel", `<div class="caps" style="color:#b9bdf2;font-size:14px">Bina pooche pakda</div>
+    <div style="display:flex;gap:12px;margin:16px 0 22px"><div class="stat"><b>0</b><span>quiz liye</span></div><div class="stat"><b>0</b><span>AI calls</span></div></div>
+    <div class="pillrow"><div class="cpill">Current Electricity</div><div class="cpill">Electrostatics</div><div class="cpill">Magnetic Effects</div></div>
+    <svg width="420" height="64" style="display:block;margin:6px 0"><path d="M70 0 C70 40 210 24 210 62 M210 0 V62 M350 0 C350 40 210 24 210 62" stroke="#d07a1c" stroke-width="3" fill="none" stroke-dasharray="6 7"/></svg>
+    <div class="cpill root">Class 10 · Electricity</div>`, el);
+  Object.assign(panel.style, { left: "1404px", top: "178px", width: "480px" });
+  const stats = panel.querySelectorAll(".stat"), pills = panel.querySelectorAll(".cpill"), svg = panel.querySelector("svg");
+  return (t) => {
+    const b = at(1);
+    S(W1.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) * mix(1, .94, P(t, b - .2, b + .6)) });
+    W1.set({ scroll: mix(0, 300, P(t, at(0, .36), at(0, .62), E.inout)) });
+    glow(test, t, at(0, .2), { out: at(0, .5) });
+    cards.forEach((c, i) => glow(c, t, at(0, [.56, .72, .88][i])));
+    const k = P(t, at(1, .04), at(1, .26), E.inout);
+    S(W2.el, { o: P(t, b - .2, b + .1), x: mix(1500, 0, P(t, b - .2, b + .6, E.out5)) });
+    W2.set({ k: mix(1, 1.45, k), cx: 1000, cy: 470 });
+    glow(spot, t, at(1, .06), { dim: .32 });
+    S(panel, { o: P(t, at(1, .08), at(1, .16)), x: mix(80, 0, P(t, at(1, .08), at(1, .3), E.out5)) });
+    pop(stats[0], t, at(1, .1), { s: .6 }); pop(stats[1], t, at(1, .22), { s: .6 });
+    [0, 1, 2].forEach((i) => pop(pills[i], t, at(1, .42 + i * .07), { x: 40, y: 0 }));
+    svg.style.clipPath = `inset(0 0 ${100 - 100 * P(t, at(1, .62), at(1, .76), E.inout)}% 0)`;
+    pop(pills[3], t, at(1, .76), { s: .5 }); pills[3].style.boxShadow = `0 0 ${30 + 14 * Math.sin(t * 6)}px rgba(208,122,28,${.7 * P(t, at(1, .8), at(1, .9))})`;
+    const mv = P(t, at(1, .82), at(1, .95), E.inout), click = cl((t - at(1, .95)) / .4);
+    W2.point(mix(1080, R2.btn.x + 70, mv), mix(690, R2.btn.y + 18, mv), P(t, at(1, .8), at(1, .86)), click);
+  };
+});
+
+// 7. the two-minute check: one question per earlier chapter, the deepest miss is the root
+scene("check", "light", "2-minute check", (el, d, at) => {
+  const W = new Win(el, { shots: ["v_answered", "v_found"], url: "edify.app/roots · Current Electricity" });
+  const R = D.rects.v_after, root = W.hl(R.root, "amber", 6);
+  const stamp = W.note(R.root.x + R.root.w - 250, R.root.y - 26, "ROOT GAP · Class 10", "amber");
+  const t1 = h("div", "tag", "Har chapter se <small>sirf 1 sawaal</small>", el); Object.assign(t1.style, { left: "1290px", top: "150px" });
+  return (t) => {
+    const sw = at(0, .64), found = P(t, sw, sw + .25);
+    S(W.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) });
+    const s1 = mix(0, 1352, P(t, at(0, .06), at(0, .5), E.inout)), s2 = mix(1090, 1150, P(t, sw, at(0, 1), E.inout));
+    const k = mix(1, 1.22, P(t, at(0, .74), at(0, .95), E.inout));
+    W.set({ scroll: found > .5 ? s2 : s1, show: { v_answered: 1, v_found: found }, k, cx: 844, cy: R.root.y - 1150 + 170 });
+    pop(t1, t, at(0, .2), { out: at(0, .56) });
+    const mv = P(t, at(0, .46), at(0, .59), E.inout), click = cl((t - at(0, .59)) / .35);
+    W.point(mix(900, 1160, mv), mix(420, 750, mv), P(t, at(0, .44), at(0, .5)) * (1 - found), click);
+    glow(root, t, at(0, .7)); pop(stamp, t, at(0, .76), { s: 2, y: 0, r: 3, dur: .4 });
+  };
+});
+
+// 8. the five-minute fix: the lesson, then a new question
+scene("fix", "light", "5-minute fix", (el, d, at) => {
+  const W = new Win(el, { shots: ["v_lesson", "v_fixed"], url: "edify.app/roots · 5-minute fix" });
+  const R = D.rects.v_after, lesson = W.hl(R.lesson, "", 6);
+  const done = W.note(R.closed.x + 150, R.closed.y - 14, "✓ &nbsp;Gap closed", "ok");
+  const t1 = h("div", "tag hl", "Hinglish mein <small>ghar ki tanki wala example</small>", el); Object.assign(t1.style, { left: "1180px", top: "140px" });
+  return (t) => {
+    const sw = at(0, .74), fixed = P(t, sw, sw + .25), down = P(t, at(0, .46), at(0, .6), E.inout);
+    S(W.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) });
+    const scroll = mix(mix(2100, 2310, P(t, .1, at(0, .12), E.inout)), 2590, down), k = mix(1, 1.3, P(t, at(0, .1), at(0, .28), E.inout)) - .3 * down + .16 * P(t, sw + .1, at(0, 1), E.inout);
+    W.set({ scroll, k, cx: 900, cy: mix(R.lesson.y - 2310 + 195, R.closed.y - 2590 - 40, down), show: { v_lesson: 1, v_fixed: fixed } });
+    glow(lesson, t, at(0, .12), { out: at(0, .46) });
+    pop(t1, t, at(0, .2), { out: at(0, .5) });
+    const mv = P(t, at(0, .58), at(0, .68), E.inout), click = cl((t - at(0, .68)) / .35);
+    W.point(mix(1000, 660, mv), mix(300, 3040 - 2590, mv), P(t, at(0, .56), at(0, .62)) * (1 - fixed), click);
+    pop(done, t, sw + .2, { s: .4, y: 0 });
+  };
+});
+
+// 9. proof: the stuck topic before and after
+scene("proof", "light", "Proof", (el, d, at) => {
+  const W = new Win(el, { shots: ["v_after"], url: "edify.app/roots · before and after" });
+  const R = D.rects.v_after, score = W.hl({ x: R.ba.x + 12, y: R.ba.y + 8, w: 420, h: 112 }, "ok", 0);
+  const panel = h("div", "panel paper", `<div class="caps" style="color:#6b6a65;font-size:14px">Current Electricity · wahi topic</div>
+    <div style="display:flex;align-items:center;gap:26px;margin-top:20px">
+      <div id="pb" style="flex:1;opacity:0"><div style="font:500 20px Geist;color:#6b6a65">Fix se pehle</div><div class="serif" style="font:600 120px/1 Fraunces;color:#9b9a94">1<span style="font-size:70px">/3</span></div><div class="pd"><i></i><i></i><i></i></div></div>
+      <div id="par" class="serif" style="font:500 70px Fraunces;color:#9b9a94;opacity:0">→</div>
+      <div id="pa" style="flex:1;opacity:0"><div style="font:500 20px Geist;color:#2f7d4a">Fix ke baad</div><div class="serif" style="font:600 120px/1 Fraunces;color:#2f7d4a">3<span style="font-size:70px">/3</span></div><div class="pd"><i></i><i></i><i></i></div></div>
+    </div><div style="font:500 16px Geist;color:#6b6a65;margin-top:22px">Demo account · har baar 3 naye sawaal, question bank se</div>`, el);
+  Object.assign(panel.style, { left: "1180px", top: "330px", width: "660px" });
+  panel.querySelectorAll(".pd").forEach((p) => { p.style.cssText = "display:flex;gap:10px;margin-top:14px"; [...p.children].forEach((i) => (i.style.cssText = "width:54px;height:14px;border-radius:99px;background:#e4e2db;display:block")); });
+  const pb = panel.querySelector("#pb"), pa = panel.querySelector("#pa"), par = panel.querySelector("#par"), bd = pb.querySelectorAll("i"), ad = pa.querySelectorAll("i");
+  return (t) => {
+    S(W.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)), x: mix(0, -170, P(t, at(0, .5), at(0, .64), E.inout)) });
+    const scroll = mix(2620, 3040, P(t, .2, at(0, .3), E.inout)), k = mix(1, 1.5, P(t, at(0, .3), at(0, .5), E.inout));
+    W.set({ scroll, k, cx: 850, cy: R.ba.y - 3040 + 110 });
+    glow(score, t, at(0, .36));
+    S(panel, { o: P(t, at(0, .52), at(0, .62)), x: mix(90, 0, P(t, at(0, .52), at(0, .72), E.out5)) });
+    pop(pb, t, at(0, .68), { s: .7 }); bd[0].style.background = P(t, at(0, .72), at(0, .76)) > .5 ? "#9b9a94" : "#e4e2db";
+    S(par, { o: P(t, at(0, .8), at(0, .86)), x: mix(-30, 0, P(t, at(0, .8), at(0, .9), E.out5)) });
+    pop(pa, t, at(0, .86), { s: .5 }); ad.forEach((i, n) => (i.style.background = P(t, at(0, .88) + n * .12, at(0, .88) + n * .12 + .05) > .5 ? "#2f7d4a" : "#e4e2db"));
+    panel.style.boxShadow = `0 40px 90px -30px rgba(18,18,17,.45), 0 0 0 1px rgba(18,18,17,.08), 0 0 ${60 * P(t, at(0, .9), at(0, 1))}px rgba(47,125,74,${.45 * P(t, at(0, .9), at(0, 1))})`;
+  };
+});
+
+// 10. the Gap Genome
+scene("genome", "light", "Gap Genome", (el, d, at) => {
+  const W = new Win(el, { shots: ["s_genome", "s_genome_focus"], url: "edify.app/genome" });
+  const R = D.rects.s_genome_focus, top = W.hl(R.top, "", 6);
+  const t1 = h("div", "tag hl", "Class 10 Electricity <small>3 exam chapters iske upar</small>", el); Object.assign(t1.style, { left: "1050px", top: "210px" });
+  const nums = h("div", "panel", `<div style="display:flex;align-items:center;gap:30px"><div><b class="serif" id="n1" style="font:600 130px/1 Fraunces">0</b><div style="font:500 22px Geist;opacity:.75">exam chapters</div></div>
+    <div class="serif" style="font:500 70px Fraunces;color:#b9bdf2">→</div><div><b class="serif" id="n2" style="font:600 130px/1 Fraunces;color:#b9bdf2">0</b><div style="font:500 22px Geist;opacity:.75">school chapters</div></div></div>`, el);
+  Object.assign(nums.style, { left: "290px", top: "560px" });
+  const n1 = nums.querySelector("#n1"), n2 = nums.querySelector("#n2");
+  return (t) => {
+    const b = at(1), focus = P(t, at(0, .5), at(0, .58)), back = P(t, at(1, .52), at(1, .7), E.inout);
+    S(W.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) });
+    const scroll = mix(mix(0, 430, P(t, at(0, .12), at(0, .4), E.inout)), 1141, back), k = mix(1, 1.32, P(t, at(0, .56), at(0, .8), E.inout)) * mix(1, 1 / 1.32, back);
+    W.set({ scroll, k, cx: 900, cy: 520, show: { s_genome: 1, s_genome_focus: focus } });
+    pop(t1, t, at(0, .7), { out: b + .2 });
+    S(nums, { o: P(t, b, b + .3) * (1 - P(t, at(1, .5), at(1, .6))), y: mix(60, 0, P(t, b, b + .6, E.out5)) });
+    n1.textContent = Math.round(23 * P(t, at(1, .04), at(1, .2), E.out3)); n2.textContent = Math.round(41 * P(t, at(1, .24), at(1, .42), E.out3));
+    glow(top, t, at(1, .72));
+  };
+});
+
+// 11. the coach
+scene("coach", "light", "AI coach", (el, d, at) => {
+  const W = new Win(el, { shots: ["c_dash"], url: "edify.app · dashboard" });
+  const R = D.rects.c_dash, card = W.hl(R.coach, "", 6), fix = W.hl(R.fix, "amber", 4);
+  const t1 = h("div", "tag", "☾ &nbsp;Har raat 9:30 <small>kal ka plan</small>", el); Object.assign(t1.style, { left: "1260px", top: "150px" });
+  const t2 = h("div", "tag amber", "Root gap sabse upar", el); Object.assign(t2.style, { left: "1150px", top: "690px" });
+  return (t) => {
+    S(W.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) });
+    W.set({ scroll: mix(0, 890, P(t, at(0, .03), at(0, .26), E.inout)), k: mix(1, 1.2, P(t, at(0, .42), at(0, .62), E.inout)), cx: 900, cy: R.coach.y - 890 + 150 });
+    glow(card, t, at(0, .26), { out: at(0, .78) }); glow(fix, t, at(0, .8));
+    pop(t1, t, at(0, .56)); pop(t2, t, at(0, .84), { s: .5 });
+  };
+});
+
+// 12. the teacher's view
+scene("teacher", "light", "For teachers", (el, d, at) => {
+  const A = new Win(el, { shots: ["t_class"], url: "edify.app/classes · JEE 2027 batch" });
+  const RA = D.rects.t_class, gaps = A.hl(RA.gaps, "", 6), teach = A.hl(RA.teach, "amber", 4);
+  const B = new Win(el, { shots: ["t_report"], url: "edify.app/rooms · confusion map" });
+  const RB = D.rects.t_report, boards = B.hl(RB.boards, "bad", 6);
+  const t1 = h("div", "tag paper", "Kisi ka naam nahi <small>sirf ginti</small>", el); Object.assign(t1.style, { left: "1340px", top: "850px" });
+  return (t) => {
+    const sw = at(0, .5);
+    S(A.el, { o: P(t, 0, .4), y: mix(70, 0, P(t, 0, .8, E.out5)), s: mix(.95, 1, P(t, 0, .8, E.out5)) * mix(1, .93, P(t, sw, sw + .6)) });
+    A.set({ scroll: mix(0, 330, P(t, at(0, .03), at(0, .2), E.inout)) });
+    glow(gaps, t, at(0, .14), { out: at(0, .3) }); glow(teach, t, at(0, .3));
+    S(B.el, { o: P(t, sw - .1, sw + .2), x: mix(1500, 0, P(t, sw - .1, sw + .7, E.out5)) });
+    B.set({ scroll: mix(0, 180, P(t, at(0, .56), at(0, .72), E.inout)) });
+    glow(boards, t, at(0, .68)); pop(t1, t, at(0, .86));
+  };
+});
+
+// 13. and more: five screens, the phone, the dark theme
+scene("more", "dark", "Aur bhi", (el, d, at) => {
+  const grid = h("div", "abs", "", el); grid.style.inset = 0;
+  const tiles = [["s_mock", "Mock tests", 150, 96, -3], ["s_revise", "Last-day revision", 690, 70, 2], ["s_rooms", "Study rooms", 1230, 100, -2], ["s_mentors", "Mentors", 420, 480, 3], ["s_snap", "Photo se doubt", 960, 500, -3]]
+    .map(([shot, txt, x, y, r]) => {
+      const tile = h("div", "tile", img(shot), grid); Object.assign(tile.style, { left: x + "px", top: y + "px" }); tile.dataset.r = r;
+      const lab = h("div", "tlab", txt, grid); Object.assign(lab.style, { left: x + 24 + "px", top: y + 270 + "px" }); return [tile, lab];
+    });
+  const phones = ["p_dash", "p_roots", "p_genome"].map((shot, i) => { const p = h("div", "phone", img(shot), el); Object.assign(p.style, { left: 170 + i * 340 + "px", top: 170 + (i === 1 ? -40 : 0) + "px" }); return p; });
+  const pl = h("div", "tlab", "Phone par bhi", el); Object.assign(pl.style, { left: "560px", top: "70px" });
+  const W = new Win(el, { shots: ["s_roots", "d_roots"], x: 1210, y: 250, scale: .455, url: "dark mode" });
+  W.pages.d_roots.style.opacity = 1;
+  const dark = h("div", "strip", img("d_roots"), W.cam); Object.assign(dark.style, { left: 0, top: 0, width: "1440px", height: "810px" });
+  const dl = h("div", "tlab", "Dark mode", el); Object.assign(dl.style, { left: "1440px", top: "190px" });
+  return (t) => {
+    const f = [.16, .3, .44, .56, .66], off = P(t, at(0, .74), at(0, .8), E.inout);
+    tiles.forEach(([tile, lab], i) => {
+      const on = at(0, f[i]), k = P(t, on, on + .55, E.back);
+      S(tile, { o: P(t, on, on + .25) * (1 - off), y: mix(90, 0, k) - off * 60, s: mix(.7, 1, k) * (1 - off * .1), r: +tile.dataset.r });
+      pop(lab, t, on + .2, { y: 16, out: at(0, .74) });
+    });
+    phones.forEach((p, i) => { const on = at(0, .77) + i * .09; S(p, { o: P(t, on, on + .25), y: mix(260, 0, P(t, on, on + .7, E.out5)), r: [-4, 0, 4][i] }); });
+    pop(pl, t, at(0, .8));
+    S(W.el, { o: P(t, at(0, .84), at(0, .9)), x: mix(160, 0, P(t, at(0, .84), at(0, .96), E.out5)) });
+    W.pages.d_roots.style.opacity = 0;
+    dark.style.clipPath = `inset(0 0 0 ${100 - 100 * P(t, at(0, .93), at(0, 1.02), E.inout)}%)`;
+    pop(dl, t, at(0, .92));
+  };
+});
+
+// 14. cost: a chain is built once, then shared
+scene("cost", "light", "Sasta bhi", (el, d, at) => {
+  const say = h("div", "abs", `<div class="caps" style="color:#4b55c9">Shared chains</div>
+    <div class="serif" id="c1" style="font:600 112px/1.05 Fraunces;letter-spacing:-.025em;margin-top:22px">Ek baar<br>banao.</div>
+    <div class="serif" id="c2" style="font:600 112px/1.05 Fraunces;letter-spacing:-.025em;margin-top:18px">Sabke liye <em style="color:#2f7d4a">free.</em></div>`, el);
+  Object.assign(say.style, { left: "130px", top: "200px", width: "860px" });
+  const panel = h("div", "panel paper", `<div style="display:flex;justify-content:space-between;align-items:baseline"><div class="caps" style="color:#6b6a65;font-size:14px">Ek chapter ki chain</div><div style="font:600 26px Geist" id="cn">Student #1</div></div>
+    <div class="dots" style="margin:26px 0 28px">${"<i></i>".repeat(72)}</div>
+    <div style="display:flex;gap:26px;font:500 19px Geist;color:#6b6a65"><span><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#d07a1c;margin-right:8px"></i>Pehla student: AI ek baar</span><span><i style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#2f7d4a;margin-right:8px"></i>Baaki sab: AI cost 0</span></div>`, el);
+  Object.assign(panel.style, { left: "1040px", top: "190px", width: "740px" });
+  const dots = [...panel.querySelectorAll(".dots i")], cn = panel.querySelector("#cn");
+  return (t) => {
+    S(say.firstElementChild, { o: P(t, .1, .5) });
+    S(say.querySelector("#c1"), { o: P(t, at(0, .32), at(0, .42)), y: mix(50, 0, P(t, at(0, .32), at(0, .6), E.out5)) });
+    S(say.querySelector("#c2"), { o: P(t, at(0, .72), at(0, .8)), y: mix(50, 0, P(t, at(0, .72), at(0, .95), E.out5)) });
+    S(panel, { o: P(t, .2, .6), x: mix(100, 0, P(t, .2, 1, E.out5)) });
+    const lit = Math.floor(Math.pow(P(t, at(0, .6), at(0, 1) + .6, E.lin), 1.6) * 72);
+    dots.forEach((dot, i) => { const on = i === 0 ? P(t, at(0, .34), at(0, .4)) > .5 : i <= lit && lit > 0; dot.style.background = i === 0 ? (on ? "#d07a1c" : "rgba(18,18,17,.1)") : on ? "#2f7d4a" : "rgba(18,18,17,.1)"; dot.style.transform = `scale(${on ? 1 : .8})`; });
+    cn.textContent = "Student #" + Math.max(1, Math.round(Math.pow(P(t, at(0, .6), at(0, 1) + .6, E.lin), 2.4) * 1000));
+  };
+});
+
+// 15. close
+scene("close", "dark", null, (el, d, at) => {
+  const logo = h("img", "abs", "", el); logo.dataset.src = "../frontend/public/logo-mark.png"; Object.assign(logo.style, { left: "900px", top: "150px", width: "120px" });
+  const [word, letters] = wordmark(el, "Edify"); Object.assign(word.style, { left: 0, right: 0, top: "260px", textAlign: "center", fontSize: "260px" });
+  const line = h("div", "abs serif", `Symptom nahi, <em style="color:#e8b46a">asli gap</em> theek karo.`, el); Object.assign(line.style, { left: 0, right: 0, top: "580px", textAlign: "center", font: "500 70px Fraunces" });
+  const url = h("div", "abs", "github.com/Mukul07777/Edify", el); Object.assign(url.style, { left: 0, right: 0, top: "740px", textAlign: "center", font: "500 30px 'Geist Mono'", color: "#a4988a" });
+  const foot = h("div", "abs caps", "Board OCR &nbsp;·&nbsp; Live notes &nbsp;·&nbsp; Root-cause tracing &nbsp;·&nbsp; Gap Genome &nbsp;·&nbsp; AI coach &nbsp;·&nbsp; 8 languages", el);
+  Object.assign(foot.style, { left: 0, right: 0, top: "830px", textAlign: "center", color: "#6f665b", fontSize: "17px" });
+  return (t) => {
+    pop(logo, t, .1, { s: .3, y: 0 });
+    letters.forEach((l, i) => { const on = .25 + i * .07; S(l, { o: P(t, on, on + .2), y: mix(110, 0, P(t, on, on + .6, E.back)) }); });
+    S(line, { o: P(t, at(0, .3), at(0, .45)), y: mix(30, 0, P(t, at(0, .3), at(0, .7), E.out5)) });
+    S(url, { o: P(t, at(0, 1), at(0, 1) + .5) }); S(foot, { o: P(t, at(0, 1) + .4, at(0, 1) + 1) });
+  };
+});
+
+// ------------------------------------------------------------------ the frame for second T
+const cap = document.getElementById("cap"), prog = document.getElementById("prog"), hud = document.getElementById("hud");
+const brand = hud.querySelector(".brand"), sec = hud.querySelector(".sec");
+function activate(sc, on) {
+  if (sc.on === on) return;
+  sc.on = on; sc.el.style.display = on ? "block" : "none";
+  for (const im of sc.el.querySelectorAll("img[data-src]")) { if (on) im.src = im.dataset.src; else im.removeAttribute("src"); }
+}
+async function seek(T) {
+  T = cl(T, 0, D.total - 1e-3);
+  let cur = scenes[0];
+  scenes.forEach((sc, i) => {
+    const s = sc.data.start, e = s + sc.data.dur, on = T >= s - .05 && T < e + D.xf;
+    activate(sc, on);
+    if (!on) return;
+    if (T >= s) cur = sc;
+    const enter = i === 0 ? 1 : P(T, s, s + D.xf, E.inout);
+    sc.el.style.zIndex = i + 1; sc.el.style.opacity = enter;
+    sc.el.style.transform = `scale(${mix(1.04, 1, enter)})`;
+    const b = sc.el.querySelectorAll(".blob"); b[0].style.transform = `translate(${Math.sin(T * .35 + i) * 60}px,${Math.cos(T * .3) * 40}px)`; b[1].style.transform = `translate(${Math.cos(T * .32 + i) * 60}px,${Math.sin(T * .27) * 50}px)`;
+    sc.draw(T - s);
+  });
+  // heads-up: brand and section on the screen-tour scenes, the progress line always
+  const lt = T - cur.data.start, show = cur.section ? P(lt, .1, .5) * (1 - P(lt, cur.data.dur - .1, cur.data.dur + D.xf)) : 0, n = scenes.filter((s) => s.section).indexOf(cur) + 1;
+  brand.style.opacity = sec.style.opacity = show; brand.style.color = cur.theme === "dark" ? "#f4ece0" : "#121211"; brand.firstChild.style.filter = cur.theme === "dark" ? "none" : "invert(1)";
+  if (cur.section) { sec.firstChild.textContent = String(n).padStart(2, "0"); sec.lastChild.textContent = cur.section; }
+  prog.style.width = (T / D.total) * 1920 + "px";
+  // caption: the piece of the line being said
+  let text = "", o = 0, rise = 0;
+  for (const line of cur.data.lines) for (const c of line.caps) {
+    if (lt >= c.t0 - .05 && lt < c.t1 + (c === line.caps.at(-1) ? .18 : 0)) { text = c.text; o = P(lt, c.t0 - .05, c.t0 + .1) * (c === line.caps.at(-1) ? 1 - P(lt, c.t1, c.t1 + .18) : 1); rise = 1 - P(lt, c.t0 - .05, c.t0 + .2, E.out5); }
+  }
+  if (text) cap.textContent = text;
+  cap.style.opacity = o; cap.style.transform = `translate(-50%, ${rise * 14}px)`;
+  // every picture this frame needs is decoded before the photograph
+  await Promise.all([...stage.querySelectorAll("img[src]")].map((im) => im.decode().catch(() => {})));
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+}
+window.seek = seek;
+window.ready = (async () => { await document.fonts.load("600 40px Fraunces"); await document.fonts.load("italic 600 40px Fraunces"); await document.fonts.load("600 20px Geist"); await document.fonts.load("500 20px 'Geist Mono'"); await document.fonts.ready; })();
+
+const q = new URLSearchParams(location.search);
+const fit = () => { stage.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; };
+if (!q.has("raw")) { fit(); addEventListener("resize", fit); }
+window.ready.then(async () => {
+  if (q.has("play")) { const t0 = performance.now() - (+q.get("t") || 0) * 1000; const loop = async () => { await seek((performance.now() - t0) / 1000); requestAnimationFrame(loop); }; loop(); }
+  else await seek(+q.get("t") || 0);
+});
+</script>
+</body>
+</html>
