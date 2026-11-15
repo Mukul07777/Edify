@@ -1,0 +1,10 @@
+# made by capture.mjs, voice.py, build.py and render.mjs: large, and rebuilt from the scripts
+shots/
+assets/
+audio/
+frames/
+stills/
+survey/
+out/
+data.js
+survey.mjs

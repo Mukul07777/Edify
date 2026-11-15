@@ -1,0 +1,79 @@
+{
+  "_about": "The demo video's voice-over. Each line: 'say' is what the voice reads (Hindi words in Devanagari so they are pronounced right, English words in English), 'cap' is the Hinglish caption shown on screen. Scenes are in order; build.py times every scene from the recorded audio.",
+  "scenes": [
+    { "id": "hook", "lines": [
+      { "say": "एक student है. JEE की तैयारी कर रहा है. और Rotational Motion, बिल्कुल समझ नहीं आ रहा.",
+        "cap": "Ek student hai. JEE ki taiyaari kar raha hai. Aur Rotational Motion... bilkul samajh nahi aa raha." },
+      { "say": "Coaching क्या करती है? वही chapter दोबारा पढ़ा देती है.",
+        "cap": "Coaching kya karti hai? Wahi chapter dobara padha deti hai." },
+      { "say": "पर असली दिक्कत Rotational Motion है ही नहीं. असली दिक्कत है, Class 10 की trigonometry.",
+        "cap": "Par asli dikkat Rotational Motion hai hi nahi. Asli dikkat hai Class 10 ki trigonometry." }
+    ] },
+    { "id": "problem", "lines": [
+      { "say": "Lecture में ज़्यादातर बच्चे बस board copy करते रहते हैं. समझने का time ही नहीं मिलता.",
+        "cap": "Lecture mein zyadatar bachche bas board copy karte rehte hain. Samajhne ka time hi nahi milta." },
+      { "say": "और जो gap सालों पहले रह गया, उसे कोई ढूंढता ही नहीं. सब symptom ठीक करते हैं, बीमारी नहीं.",
+        "cap": "Aur jo gap saalon pehle reh gaya, use koi dhoondhta hi nahi. Sab symptom theek karte hain, beemari nahi." }
+    ] },
+    { "id": "intro", "lines": [
+      { "say": "इसीलिए हमने बनाया, Edify. Every lecture, understood.",
+        "cap": "Isiliye humne banaya Edify. Every lecture, understood." }
+    ] },
+    { "id": "live", "lines": [
+      { "say": "Lecture चालू करो. YouTube हो, या classroom का board. Edify अपने खुद के OCR model से board पढ़ता है.",
+        "cap": "Lecture chaalu karo. YouTube ho, ya classroom ka board. Edify apne khud ke OCR model se board padhta hai." },
+      { "say": "Teacher बोलता जाता है, और exam-ready notes अपने आप बनते जाते हैं. Topic बदला, तो तुरंत pop quiz.",
+        "cap": "Teacher bolta jaata hai, aur exam-ready notes apne aap bante jaate hain. Topic badla, toh turant pop quiz." },
+      { "say": "Lecture ख़त्म होते ही, revision sheet, formula book और flashcards ready.",
+        "cap": "Lecture khatm hote hi revision sheet, formula book aur flashcards ready." }
+    ] },
+    { "id": "langs", "lines": [
+      { "say": "और सब कुछ आपकी अपनी भाषा में. Hinglish, हिंदी, मराठी, बंगाली, तमिल, तेलुगु, गुजराती.",
+        "cap": "Aur sab kuch aapki apni bhasha mein. Hinglish, Hindi, Marathi, Bengali, Tamil, Telugu, Gujarati." }
+    ] },
+    { "id": "noticed", "lines": [
+      { "say": "अब असली innovation. Mock test में तीन chapters में marks कटे. Current Electricity, Electrostatics, और Magnetism.",
+        "cap": "Ab asli innovation. Mock test mein teen chapters mein marks kate. Current Electricity, Electrostatics, aur Magnetism." },
+      { "say": "Edify ने बिना quiz, बिना AI खर्च किए, खुद पकड़ लिया, कि तीनों एक ही चीज़ पर टिके हैं. Class 10 की Electricity.",
+        "cap": "Edify ne bina quiz, bina AI kharch kiye, khud pakad liya ki teeno ek hi cheez par tike hain. Class 10 ki Electricity." }
+    ] },
+    { "id": "check", "lines": [
+      { "say": "बस दो minute का check. हर पिछले chapter से एक सवाल. सबसे गहरा गलत जवाब, वही है root gap.",
+        "cap": "Bas do minute ka check. Har pichhle chapter se ek sawaal. Sabse gehra galat jawaab, wahi hai root gap." }
+    ] },
+    { "id": "fix", "lines": [
+      { "say": "फिर पाँच minute का lesson, आसान भाषा में. और एक नया सवाल, ये पक्का करने के लिए कि gap सच में भर गया.",
+        "cap": "Phir paanch minute ka lesson, aasaan bhasha mein. Aur ek naya sawaal, ye pakka karne ke liye ki gap sach mein bhar gaya." }
+    ] },
+    { "id": "proof", "lines": [
+      { "say": "और सबसे ज़रूरी, proof. अटके हुए topic पर score, fix से पहले और बाद में. यहाँ, तीन में से एक से, सीधा तीन में से तीन.",
+        "cap": "Aur sabse zaroori, proof. Atke hue topic par score, fix se pehle aur baad mein. Yahan, teen mein se ek se seedha teen mein se teen." }
+    ] },
+    { "id": "genome", "lines": [
+      { "say": "हर trace से एक बड़ा map बनता है, Gap Genome. JEE और NEET के chapters, school के किन chapters पर टिके हैं.",
+        "cap": "Har trace se ek bada map banta hai: Gap Genome. JEE aur NEET ke chapters school ke kin chapters par tike hain." },
+      { "say": "अभी तेईस exam chapters, इकतालीस school chapters से जुड़े हैं. एक foundation ठीक करो, कई chapters एक साथ आसान.",
+        "cap": "Abhi 23 exam chapters, 41 school chapters se jude hain. Ek foundation theek karo, kai chapters ek saath aasaan." }
+    ] },
+    { "id": "coach", "lines": [
+      { "say": "साथ में, हर student का अपना AI coach. उसे याद रहता है आपने कहाँ गलती की. हर रात वो कल का plan बनाता है, root gap सबसे ऊपर.",
+        "cap": "Saath mein, har student ka apna AI coach. Use yaad rehta hai aapne kahan galti ki. Har raat wo kal ka plan banata hai, root gap sabse upar." }
+    ] },
+    { "id": "teacher", "lines": [
+      { "say": "Teacher को पूरे batch का gap map मिलता है. पहले क्या पढ़ाना है, और class किस board पर खो गई. किसी का नाम नहीं, सिर्फ गिनती.",
+        "cap": "Teacher ko poore batch ka gap map milta hai. Pehle kya padhana hai, aur class kis board par kho gayi. Kisi ka naam nahi, sirf ginti." }
+    ] },
+    { "id": "more", "lines": [
+      { "say": "और भी बहुत कुछ. Mock tests, last-day revision, study rooms, mentors, photo से doubt. Phone पर भी, dark mode में भी.",
+        "cap": "Aur bhi bahut kuch. Mock tests, last-day revision, study rooms, mentors, photo se doubt. Phone par bhi, dark mode mein bhi." }
+    ] },
+    { "id": "cost", "lines": [
+      { "say": "और ये सस्ता भी है. एक chapter की chain एक बार बनती है. उसके बाद, हर student के लिए free.",
+        "cap": "Aur ye sasta bhi hai. Ek chapter ki chain ek baar banti hai. Uske baad, har student ke liye free." }
+    ] },
+    { "id": "close", "lines": [
+      { "say": "Edify. Symptom नहीं, असली gap ठीक करो.",
+        "cap": "Edify. Symptom nahi, asli gap theek karo." }
+    ] }
+  ]
+}
