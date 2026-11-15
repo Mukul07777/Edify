@@ -309,7 +309,8 @@ def _made_lesson(db: Session, link: dict[str, Any], title: str, chapter_id: str,
     where = f"Class {link['cls']}" if link.get("cls") else "earlier in your course"
     data = llm.json([{"role": "system", "content": ai._in(LESSON_SYSTEM.format(
                         target=title, idea=link["idea"], chapter=link["name"], where=where, old_q=link["check"]["q"]), language)},
-                     {"role": "user", "content": f"Why the topic needs it: {link.get('why') or link['idea']}"}],
+                     # the language said again after the request: with only the system rule a Hinglish lesson came back in English
+                     {"role": "user", "content": f"Why the topic needs it: {link.get('why') or link['idea']}{ai.REPLY_IN.get(language or '', '')}"}],
                     max_tokens=2200, temperature=0.3, feature="gap_lesson")
     check = _clean_check(data.get("check"))
     md = str(data.get("lesson_md") or "").strip()
