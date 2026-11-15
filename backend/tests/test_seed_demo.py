@@ -21,7 +21,7 @@ def test_seed_demo_makes_the_whole_demo_and_resets_cleanly(client):
     out = seed_demo.seed(client, "demo-pass-123")
     student = _login(client, "student")
     me = client.get("/api/auth/me", headers=student).json()
-    assert me["full_name"].startswith("Demo") and me["language"] == "hinglish" and me["plan"] == "pro"
+    assert me["full_name"].startswith("Demo") and me["language"] == "en" and me["plan"] == "pro"
     assert client.get("/api/auth/me", headers=_login(client, "hindi")).json()["language"] == "hi"
 
     sessions = client.get("/api/sessions", headers=student).json()

@@ -501,6 +501,6 @@ export interface GenomeNode {
   underpins: number; roots: number; fixed: number;
 }
 export interface Genome {
-  exam_chapters: number; foundations: number; links: number; students: number; traces: number; rooted: number;
+  demo?: boolean; exam_chapters: number; foundations: number; links: number; students: number; traces: number; rooted: number;
   top: GenomeNode[]; nodes: GenomeNode[]; edges: { from: string; to: string; weight: number }[];
 }

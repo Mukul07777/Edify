@@ -223,6 +223,16 @@ def _readable(slug: str | None) -> str:
     return re.sub(r"[-_]+", " ", (slug or "").split("/")[-1]).strip().capitalize()
 
 
+def _names(syl, chapter_id: str | None, topic_id: str | None) -> tuple[str, str | None]:
+    """A weak spot's chapter and topic as the syllabus names them ("Current Electricity"), not its id
+    ("physics.current-electricity", which came out as "Physics.current electricity")."""
+    ch = gaps.chapter(syl, chapter_id or "")
+    if ch is None:
+        return _readable((chapter_id or "").rsplit(".", 1)[-1]), _readable(topic_id) or None
+    topic = next((t.name for t in ch.topics if t.id == topic_id), None) if topic_id else None
+    return ch.name, topic or (_readable(topic_id.rsplit(".", 1)[-1]) if topic_id else None)
+
+
 def snapshot(db: Session, user: User) -> dict[str, Any]:
     """Edify's current picture of the student, for the coach's memory. No email, phone or anything it doesn't need."""
     weak = db.scalars(select(WeakTopic).where(WeakTopic.user_id == user.id, WeakTopic.status == "open")
@@ -231,15 +241,16 @@ def snapshot(db: Session, user: User) -> dict[str, Any]:
                        .order_by(MockTest.submitted_at.desc()).limit(5)).all()
     sessions = db.scalars(select(StudySession).where(StudySession.user_id == user.id, StudySession.ended_at.is_not(None))
                           .order_by(StudySession.ended_at.desc()).limit(8)).all()
+    syl = syllabus.of(user, whole=True)
     return {
         "type": "sync",
         "student": {"name": (user.full_name or "").split(" ")[0], "exam": user.exam_target, "language": user.language},
-        "weak": [{"chapter": _readable(w.chapter_id), "topic": _readable(w.topic_id) or None, "misses": w.misses,
-                  "note": (w.note or "")[:200]} for w in weak],
+        "weak": [{"chapter": name, "topic": topic, "misses": w.misses, "note": (w.note or "")[:200]}
+                 for w in weak for name, topic in [_names(syl, w.chapter_id, w.topic_id)]],
         "mocks": [{"title": m.title, "score": m.score, "max_score": m.max_score, "submitted_at": m.submitted_at} for m in mocks],
         "sessions": [{"title": s.title, "subject": s.subject, "ended_at": s.ended_at} for s in sessions],
         "gaps": gaps.open_roots(db, user.id),  # root gaps found and not yet fixed: the coach plans these first
-        "suspects": gaps.suspects(db, user.id, syllabus.of(user, whole=True)),  # likely roots, from weak spots alone
+        "suspects": gaps.suspects(db, user.id, syl),  # likely roots, from weak spots alone
     }
 
 

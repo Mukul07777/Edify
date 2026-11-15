@@ -24,7 +24,7 @@ from functools import cache
 from statistics import median
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models._util import utcnow
@@ -469,14 +469,23 @@ def batch_roots(db: Session, user_ids: list[int]) -> dict[str, Any]:
 
 
 GAP_FEATURES = ("gap_trace", "gap_lesson")
-DEMO_PREFIX = "demo.focs."  # scripts/seed_demo.py's accounts
+DEMO_PREFIX = "demo.edify."  # scripts/seed_demo.py's and seed_showcase.py's accounts
+DEMO_PREFIXES = (DEMO_PREFIX, "demo.focs.")  # and the ones made before the rename, still in older databases
+
+
+def is_demo(email: str | None) -> bool:
+    return (email or "").lower().startswith(DEMO_PREFIXES)
+
+
+def _demo_email():
+    return or_(*(User.email.like(f"{p}%") for p in DEMO_PREFIXES))
 
 
 def proof(db: Session) -> dict[str, Any]:
     """How root-cause tracing goes for real students, from the app's own records (never estimated): how often a trace
     finds an earlier gap, how often the five-minute fix works on the re-check, how long fixing takes, how many traces
     reused a chain another student's trace had already paid for, and what the AI behind it cost per student."""
-    real = select(User.id).where(User.email.not_like(f"{DEMO_PREFIX}%"))  # the seeded demo accounts never count
+    real = select(User.id).where(~_demo_email())  # the seeded demo accounts never count
     started = db.scalar(select(func.count(GapTrace.id)).where(GapTrace.user_id.in_(real))) or 0
     done = db.scalars(select(GapTrace).where(GapTrace.status != "checking", GapTrace.user_id.in_(real))).all()
     chains = db.scalar(select(func.count(PrereqMap.key))) or 0
@@ -535,10 +544,11 @@ def _exam_by_id() -> dict[str, Chapter]:
     return out
 
 
-def genome(db: Session) -> dict[str, Any]:
+def genome(db: Session, demo: bool = False) -> dict[str, Any]:
     """The Gap Genome: every shared chain put together into one map of what the exam chapters really rest on, and,
     from real students' traces, where their trouble actually starts. The shape comes from the chains (one per
-    chapter, the same for everyone); the weights come only from real traces (never the seeded demo accounts).
+    chapter, the same for everyone); the weights come only from real traces, never the seeded demo accounts, except
+    for a demo account looking at it (``demo``): it sees the seeded demo cohort instead, and the page says so.
     Counts only: no student is named."""
     exam, school = _exam_by_id(), _school_by_id()
     nodes: dict[str, dict[str, Any]] = {}
@@ -569,8 +579,8 @@ def genome(db: Session) -> dict[str, Any]:
     for cid, tops in under.items():
         nodes[cid]["underpins"] = len(tops)
 
-    real = select(User.id).where(User.email.not_like(f"{DEMO_PREFIX}%"))
-    traces = db.scalars(select(GapTrace).where(GapTrace.status != "checking", GapTrace.user_id.in_(real))).all()
+    who = select(User.id).where(_demo_email() if demo else ~_demo_email())
+    traces = db.scalars(select(GapTrace).where(GapTrace.status != "checking", GapTrace.user_id.in_(who))).all()
     students: set[int] = set()
     rooted = 0
     for t in traces:
@@ -585,7 +595,7 @@ def genome(db: Session) -> dict[str, Any]:
 
     foundations = sorted((n for n in nodes.values() if n["underpins"]), key=lambda n: (-n["underpins"], -n["roots"], n["cls"] or 99))
     return {
-        "exam_chapters": targets, "foundations": len(foundations), "links": len(edges),
+        "demo": demo, "exam_chapters": targets, "foundations": len(foundations), "links": len(edges),
         "students": len(students), "traces": len(traces), "rooted": rooted,
         "top": foundations[:8],
         "nodes": list(nodes.values()),

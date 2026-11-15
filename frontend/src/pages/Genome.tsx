@@ -68,8 +68,8 @@ function GenomeMap({ nodes, edges, focus, onFocus }: {
           return (
             <g key={n.id} transform={`translate(${p.x},${p.y})`} className="cursor-pointer" opacity={dim ? 0.25 : 1}
               onClick={(ev) => { ev.stopPropagation(); onFocus(n.id === focus ? null : n.id); }}>
-              <title>{`${n.name} (${n.subject ?? ""}${n.cls ? `, Class ${n.cls}` : ""}): ${n.underpins} exam chapters rest on it, ${n.roots} real root gaps`}</title>
-              {n.roots > 0 && <circle r={r + 5} fill="none" stroke="var(--bad)" strokeWidth={2} />}
+              <title>{`${n.name} (${n.subject ?? ""}${n.cls ? `, Class ${n.cls}` : ""}): ${n.underpins} exam chapters rest on it, ${n.roots} root gaps traced here`}</title>
+              {n.roots > 0 && <circle r={r + 4 + Math.min(4, n.roots / 3)} fill="none" stroke="var(--bad)" strokeWidth={1.5 + Math.min(3, n.roots / 4)} />}
               <circle r={r} fill={tone(n.subject)} stroke="var(--bg)" strokeWidth={1.5} />
               <text x={0} y={r + 11} textAnchor="middle" fontSize={10} fill="var(--fg-soft)">
                 {n.name.length > 22 ? n.name.slice(0, 21) + "…" : n.name}
@@ -87,6 +87,30 @@ export default function Genome() {
   const [focus, setFocus] = useState<string | null>(null);
   const top = data?.top[0];
   const picked = focus ? data?.nodes.find((n) => n.id === focus) : null;
+  const who = data?.demo ? "demo cohort" : "real";
+  // where trouble really starts: the chapters students' traces ended on, most first
+  const roots = useMemo(() => (data?.nodes ?? []).filter((n) => n.roots > 0).sort((a, b) => b.roots - a.roots).slice(0, 6), [data]);
+  const maxRoots = roots[0]?.roots ?? 1;
+  // for the tapped chapter: what it rests on, and every exam chapter that rests on it (following the chains up)
+  const relations = useMemo(() => {
+    if (!data || !focus) return null;
+    const byId = new Map(data.nodes.map((n) => [n.id, n]));
+    const up = new Map<string, string[]>();
+    data.edges.forEach((e) => up.set(e.to, [...(up.get(e.to) ?? []), e.from]));
+    const exams = new Set<string>();
+    const seen = new Set<string>([focus]);
+    const stack = [focus];
+    while (stack.length) {
+      for (const p of up.get(stack.pop()!) ?? []) {
+        if (seen.has(p)) continue;
+        seen.add(p);
+        stack.push(p);
+        if (byId.get(p)?.kind === "exam" && !byId.get(p)?.underpins) exams.add(p);
+      }
+    }
+    const below = data.edges.filter((e) => e.from === focus).map((e) => byId.get(e.to)).filter(Boolean) as GenomeNode[];
+    return { exams: [...exams].map((id) => byId.get(id)!).filter(Boolean), below };
+  }, [data, focus]);
 
   return (
     <div className="min-w-0">
@@ -98,11 +122,20 @@ export default function Genome() {
           body={<>Trace a chapter on <Link className="underline" to="/app/roots">Root cause</Link> and it appears here.</>} /></Card>
       ) : (
         <div className="grid min-w-0 grid-cols-1 gap-5 [&>*]:min-w-0">
-          <div className="grid gap-3 sm:grid-cols-3">
+          {data.demo && (
+            <div className="rounded-xl border border-line bg-card px-4 py-3 text-[13px] text-muted">
+              <Badge>Demo data</Badge>{" "}
+              You're signed in to a demo account, so the weights below come from the seeded demo cohort. Real students
+              never count here, and real accounts never see the demo cohort.
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-4">
             <Stat label="Exam chapters mapped" value={data.exam_chapters} />
-            <Stat label="School chapters they rest on" value={data.foundations} />
-            <Stat label="Real students traced" value={data.students}
-              note={data.students ? `${data.rooted} root gaps found` : "No real traces yet: the map's shape is ready, the weights come from students"} />
+            <Stat label="Earlier chapters they rest on" value={data.foundations} note={`${data.links} prerequisite links`} />
+            <Stat label={data.demo ? "Students traced (demo cohort)" : "Real students traced"} value={data.students}
+              note={data.students ? `${data.traces} traces` : "No real traces yet: the map's shape is ready, the weights come from students"} />
+            <Stat label="Root gaps found" value={data.rooted}
+              note={data.rooted ? `${roots.reduce((s, n) => s + n.fixed, 0)} fixed with a five-minute lesson` : undefined} />
           </div>
 
           {top && (
@@ -117,7 +150,7 @@ export default function Genome() {
 
           <Card>
             <CardHeader icon={<GitBranch size={16} />} title="The map"
-              subtitle="Tap a chapter to see what it rests on and what rests on it. A red ring means real students' traces ended there." />
+              subtitle={`Exam chapters on the right, the school chapters they rest on to the left. Tap a chapter to follow its chain. A red ring: ${who} students' traces ended there (thicker, more).`} />
             <div className="p-3">
               <GenomeMap nodes={data.nodes} edges={data.edges} focus={focus} onFocus={setFocus} />
             </div>
@@ -133,11 +166,48 @@ export default function Genome() {
               <div className="flex flex-wrap items-center gap-2">
                 <b>{picked.name}</b>
                 <Badge>{picked.cls ? `Class ${picked.cls}` : "Exam"} · {picked.subject}</Badge>
-                {picked.roots > 0 && <Badge tone="bad">{picked.roots} real root gaps · {picked.fixed} fixed</Badge>}
+                {picked.roots > 0 && <Badge tone="bad">{picked.roots} root gaps traced here · {picked.fixed} fixed</Badge>}
               </div>
-              <p className="mt-2 text-[14px] text-muted">
-                {picked.underpins ? `${picked.underpins} exam chapters rest on this.` : "An exam chapter: the lines show what it rests on."}
-              </p>
+              {relations && relations.exams.length > 0 && (
+                <p className="mt-2 text-[14px]">
+                  <span className="text-muted">Exam chapters that rest on it: </span>
+                  {relations.exams.map((n) => n.name).join(", ")}
+                </p>
+              )}
+              {relations && relations.below.length > 0 && (
+                <p className="mt-1.5 text-[14px]">
+                  <span className="text-muted">It rests on: </span>
+                  {relations.below.map((n) => `${n.name}${n.cls ? ` (Class ${n.cls})` : ""}`).join(", ")}
+                </p>
+              )}
+              {!picked.underpins && !relations?.below.length && <p className="mt-2 text-[14px] text-muted">An exam chapter.</p>}
+              {picked.roots > 0 && (
+                <p className="mt-2 text-[14px] text-muted">
+                  A student weak here fails every chapter above it. One five-minute fix here helps all of them at once.
+                </p>
+              )}
+            </Card>
+          )}
+
+          {roots.length > 0 && (
+            <Card>
+              <CardHeader icon={<Dna size={16} />} title="Where trouble really starts"
+                subtitle={`The earlier chapters ${who} students' traces ended on: the gap under the chapter they were failing.`} />
+              <ol className="grid gap-2.5 px-5 pb-5">
+                {roots.map((n) => (
+                  <li key={n.id} className="cursor-pointer text-[14px]" onClick={() => setFocus(n.id)}>
+                    <div className="flex items-center gap-3">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone(n.subject) }} />
+                      <span className="min-w-0 flex-1 truncate">{n.name}{n.cls ? <span className="text-muted"> · Class {n.cls}</span> : null}</span>
+                      <span className="shrink-0 text-muted">{n.fixed} fixed</span>
+                      <span className="w-20 shrink-0 text-right font-semibold">{n.roots} roots</span>
+                    </div>
+                    <div className="mt-1 ml-5 h-1.5 rounded-full bg-line">
+                      <div className="h-1.5 rounded-full" style={{ width: `${(100 * n.roots) / maxRoots}%`, background: "var(--bad)" }} />
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </Card>
           )}
 
@@ -145,7 +215,7 @@ export default function Genome() {
             <CardHeader icon={<Users size={16} />} title="Most load-bearing school chapters" subtitle="Fix one of these and several exam chapters get easier at once." />
             <ol className="divide-y divide-line px-5 pb-3">
               {data.top.map((n, i) => (
-                <li key={n.id} className="flex items-center gap-3 py-2.5 text-[14px]">
+                <li key={n.id} className="flex cursor-pointer items-center gap-3 py-2.5 text-[14px]" onClick={() => setFocus(n.id)}>
                   <span className="w-5 text-muted">{i + 1}</span>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: tone(n.subject) }} />
                   <span className="min-w-0 flex-1 truncate">{n.name}</span>

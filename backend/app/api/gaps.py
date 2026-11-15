@@ -34,9 +34,10 @@ def overview(db: Session = Depends(get_db), user: User = Depends(get_current_use
 
 
 @router.get("/genome")
-def genome(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> dict[str, Any]:
-    """The Gap Genome: what the exam chapters really rest on, and where real students' trouble starts (counts only)."""
-    return gaps.genome(db)
+def genome(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict[str, Any]:
+    """The Gap Genome: what the exam chapters really rest on, and where real students' trouble starts (counts only).
+    A demo account sees the seeded demo cohort's traces instead, marked as such."""
+    return gaps.genome(db, demo=gaps.is_demo(user.email))
 
 
 class StartIn(BaseModel):

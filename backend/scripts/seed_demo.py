@@ -14,7 +14,7 @@ Runs through the app itself (the real endpoints, in-process) on the database in 
     so the Root cause page opens with "Edify noticed": all three rest on Class 10 Electricity
   - a verified B.Tech senior, and an "Ask a senior" question with Edify's draft checked and a senior's answer accepted
 
-Every account is named "Demo …" with a demo.focs.*@example.com address, and every post starts with "[Demo]", so
+Every account is named "Demo …" with a demo.edify.*@example.com address, and every post starts with "[Demo]", so
 nobody mistakes them for real students. Run it once with the AI key the demo will use (notes and translations are
 written then and kept); --reset deletes the demo accounts and everything in them first.
 """
@@ -32,7 +32,7 @@ from demo_metrics import BOARDS, board  # noqa: E402
 
 DOMAIN = "example.com"
 ACCOUNTS = {
-    "student": {"full_name": "Demo Student (JEE)", "exam_target": "jee", "class_level": "Class 12", "language": "hinglish"},
+    "student": {"full_name": "Demo Student (JEE)", "exam_target": "jee", "class_level": "Class 12", "language": "en"},
     "hindi": {"full_name": "Demo Student (Hindi)", "exam_target": "jee", "class_level": "Class 12", "language": "hi"},
     "teacher": {"full_name": "Demo Teacher", "exam_target": "jee", "class_level": "Class 12"},
     "senior": {"full_name": "Demo Senior (B.Tech)", "exam_target": "college_cse", "college": "nsut", "semester": 5},
@@ -43,7 +43,7 @@ ROOM = "Demo: Work and energy"
 
 
 def email(key: str) -> str:
-    return f"demo.focs.{key}@{DOMAIN}"
+    return f"demo.edify.{key}@{DOMAIN}"
 
 
 def seed(client, password: str, reset: bool = False) -> dict:
@@ -78,7 +78,7 @@ def seed(client, password: str, reset: bool = False) -> dict:
         for user in db.scalars(select(User).where(User.email.in_([email(k) for k in ACCOUNTS]))):
             user.plan = "pro"
             if user.email == email("senior"):  # the college email check, done for the demo (no inbox to read a code from)
-                user.college_email, user.college_verified_at, user.verified_semester = "demo.focs.senior@nsut.ac.in", utcnow() - timedelta(days=1), 5
+                user.college_email, user.college_verified_at, user.verified_semester = "demo.edify.senior@nsut.ac.in", utcnow() - timedelta(days=1), 5
         db.commit()
 
     def lecture(who: str, title: str, boards: list[list[str]], room_session: int | None = None) -> int:
@@ -207,7 +207,7 @@ def seed(client, password: str, reset: bool = False) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--password", default="focs-demo-2026", help="one password for every demo account")
+    ap.add_argument("--password", default="edify-demo-2026", help="one password for every demo account")
     ap.add_argument("--reset", action="store_true", help="delete the demo accounts and their data first")
     args = ap.parse_args()
 
