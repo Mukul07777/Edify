@@ -86,7 +86,7 @@ export interface OcrLine {
   text: string;
   confidence: number;
   box: number[][];
-  engine: "focs" | "rapid" | string;
+  engine: "edify" | "rapid" | string;
   candidates?: Record<string, { text: string; confidence: number }>;
 }
 
@@ -957,13 +957,13 @@ export interface HostedSession extends GroupSessionInfo {
   queue: { id: number; student: string; doubt: string; answered: boolean; paid_via: "free" | "paid" | "pro" }[];
 }
 export interface Hosting { sessions: HostedSession[]; pay_inr: number; minutes: number; seats: number; max_seats: number; max_price_inr: number; commission_pct: number }
-export interface EarningsRow { calls: number; calls_inr: number; focs_inr: number; sessions: number; sessions_inr: number; earned_inr: number; paid_out_inr: number; owed_inr: number }
+export interface EarningsRow { calls: number; calls_inr: number; edify_inr: number; sessions: number; sessions_inr: number; earned_inr: number; paid_out_inr: number; owed_inr: number }
 export interface MentorEarnings {
   month: EarningsRow; total: EarningsRow; call_price_inr: number; commission_pct: number; call_share_inr: number; session_pay_inr: number;
   payouts: { amount_inr: number; note: string; created_at: string | null }[];
 }
 export interface CallMoney {
-  calls_revenue_inr: number; sessions_revenue_inr: number; pro_revenue_inr: number; mocks_revenue_inr?: number; focs_share_inr: number; commission_pct: number; owed_to_mentors_inr: number;
+  calls_revenue_inr: number; sessions_revenue_inr: number; pro_revenue_inr: number; mocks_revenue_inr?: number; edify_share_inr: number; commission_pct: number; owed_to_mentors_inr: number;
   refunds_due: { id: number; student: string | null; amount_inr: number; purpose: string; provider_payment_id: string | null; paid_at: string | null }[];
   by_mentor: (EarningsRow & { id: number; mentor: string | null })[];
 }

@@ -5,13 +5,13 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import { chromium } from "../frontend/node_modules/playwright/index.mjs";
 
-const BASE = "http://127.0.0.1:8011", PW = "focs-demo-2026", VW = 1440, VH = 810;
+const BASE = "http://127.0.0.1:8011", PW = "edify-demo-2026", VW = 1440, VH = 810;
 const ONLY = process.argv[2] ? new Set(process.argv[2].split(",")) : null;
 const want = (part) => !ONLY || ONLY.has(part);
 const meta = fs.existsSync("shots/shots.json") ? JSON.parse(fs.readFileSync("shots/shots.json", "utf8")) : {};
 const save = () => fs.writeFileSync("shots/shots.json", JSON.stringify(meta, null, 1));
 const login = async (key) => (await fetch(`${BASE}/api/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
-  body: JSON.stringify({ email: `demo.focs.${key}@example.com`, password: PW }) })).json();
+  body: JSON.stringify({ email: `demo.edify.${key}@example.com`, password: PW }) })).json();
 const api = async (token, path) => (await fetch(BASE + "/api" + path, { headers: { Authorization: `Bearer ${token}` } })).json().catch(() => null);
 const browser = await chromium.launch({ channel: "msedge" });
 
@@ -20,10 +20,10 @@ async function ctxFor(key, { dark = false, vw = VW, vh = VH, dpr = 2, mobile = f
   const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: dpr, isMobile: mobile, hasTouch: mobile });
   await ctx.addInitScript(([a, dark]) => {
     if (a) {
-      localStorage.setItem("focs-auth", JSON.stringify({ state: { token: a.access_token, user: a.user }, version: 0 }));
-      localStorage.setItem(`focs.tour.done.${a.user.id}`, "1");
+      localStorage.setItem("edify-auth", JSON.stringify({ state: { token: a.access_token, user: a.user }, version: 0 }));
+      localStorage.setItem(`edify.tour.done.${a.user.id}`, "1");
     }
-    if (dark) localStorage.setItem("focs-look-4", "dark");
+    if (dark) localStorage.setItem("edify-look-4", "dark");
   }, [a, dark]);
   return { ctx, token: a?.access_token, vw, vh };
 }

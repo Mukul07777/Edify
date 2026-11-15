@@ -140,7 +140,7 @@ def _live_engine(engine: str | None) -> str | None:
     fallback and the key for notes shared between students, and EdifyOCR alone does that for a third of the CPU,
     which on a laptop playing the lecture is the difference between a smooth video and a stutter at every board."""
     if engine is None and vision.available() and ocr_engine.resolve_mode(None) == "auto":
-        return "focs"
+        return "edify"
     return engine
 
 
@@ -164,7 +164,7 @@ def _write_notes(db: Session, user: User, text: str, prev_topic: str | None, pat
     if board == "":
         return {"is_lecture": False, "source": "vision"}, ai_ok
     notes_text = text
-    if board is None and img is not None and ocr_used == "focs" and ocr_engine.resolve_mode(None) == "auto":
+    if board is None and img is not None and ocr_used == "edify" and ocr_engine.resolve_mode(None) == "auto":
         fuller = clean_ocr(ocr_engine.run(img, "auto").text)
         if len(fuller) >= settings.OCR_MIN_CHARS:
             notes_text = fuller

@@ -5,7 +5,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.core.config import settings
 
-log = logging.getLogger("focs.db")
+log = logging.getLogger("edify.db")
 
 DB_URL = settings.database_url
 _is_sqlite = DB_URL.startswith("sqlite")

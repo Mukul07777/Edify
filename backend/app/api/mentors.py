@@ -557,7 +557,7 @@ def call_money(db: Session = Depends(get_db)) -> dict[str, Any]:
             "sessions_revenue_inr": sum(p.amount_inr for p in paid if p.purpose == "session_seat" and p.status == "paid"),
             "pro_revenue_inr": sum(p.amount_inr for p in paid if p.purpose in payments.PRO_PASSES and p.status == "paid"),
             "mocks_revenue_inr": sum(p.amount_inr for p in paid if p.purpose == "mocks" and p.status == "paid"),
-            "focs_share_inr": sum(m["focs_inr"] for m in money.values()), "commission_pct": settings.MENTOR_COMMISSION_PCT,
+            "edify_share_inr": sum(m["edify_inr"] for m in money.values()), "commission_pct": settings.MENTOR_COMMISSION_PCT,
             "owed_to_mentors_inr": sum(max(0, m["owed_inr"]) for m in money.values()),
             "refunds_due": [{"id": p.id, "student": people.get(p.user_id), "amount_inr": p.amount_inr, "purpose": p.purpose,
                              "provider_payment_id": p.provider_payment_id, "paid_at": _iso(p.paid_at)} for p in owed],

@@ -36,7 +36,7 @@ interface Setup {
   /** questions in the test that ends the day */
   count: number;
 }
-const SETUP_KEY = "focs-lastday-setup";
+const SETUP_KEY = "edify-lastday-setup";
 const FRESH: Setup = { scope: "all", subject: "", hours: 6, picked: [], topics: {}, include: [], exclude: [], cover: "important", count: 15 };
 const loadSetup = (): Setup => { try { return { ...FRESH, ...JSON.parse(localStorage.getItem(SETUP_KEY) ?? "{}") }; } catch { return FRESH; } };
 
@@ -179,7 +179,7 @@ function OwnRow({ to, icon, label, value }: { to: string; icon: ReactNode; label
 }
 
 function Checklist({ items }: { items: LastDayPlan["checklist"] }) {
-  const key = `focs-lastday-${today()}`;  // ticks are for today only
+  const key = `edify-lastday-${today()}`;  // ticks are for today only
   const [done, setDone] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(key) ?? "[]"); } catch { return []; } });
   const toggle = (id: string) => {
     const next = done.includes(id) ? done.filter((d) => d !== id) : [...done, id];

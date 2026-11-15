@@ -1,5 +1,5 @@
 """A throwaway demo account for filming the root-cause trace step by step (run from backend/, app on :8011).
-Its email starts with demo.focs., so it never counts as a real student. Prints nothing secret."""
+Its email starts with demo.edify., so it never counts as a real student. Prints nothing secret."""
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -12,7 +12,7 @@ from app.core.database import SessionLocal  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.services import account, syllabus, weak  # noqa: E402
 
-EMAIL, PW, BASE = "demo.focs.video@example.com", "focs-demo-2026", "http://127.0.0.1:8011"
+EMAIL, PW, BASE = "demo.edify.video@example.com", "edify-demo-2026", "http://127.0.0.1:8011"
 
 with SessionLocal() as db:
     old = db.scalar(select(User).where(User.email == EMAIL))

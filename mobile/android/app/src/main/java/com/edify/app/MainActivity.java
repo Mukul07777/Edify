@@ -1,4 +1,4 @@
-package com.focs.app;
+package com.edify.app;
 
 import android.os.Bundle;
 import android.webkit.WebView;

@@ -133,7 +133,7 @@ def earnings(db: Session, mentor_ids: list[int], since: datetime | None = None) 
     """Per mentor: paid calls done and what they earned, master sessions held and their share of every paid or Pro seat
     (older sessions: a fixed pay, if anyone came), what Edify kept, what was paid out, and what's owed. ``since`` limits
     the earned figures (not payouts or owed)."""
-    out = {i: {"calls": 0, "calls_inr": 0, "focs_inr": 0, "sessions": 0, "sessions_inr": 0, "earned_inr": 0, "paid_out_inr": 0, "owed_inr": 0}
+    out = {i: {"calls": 0, "calls_inr": 0, "edify_inr": 0, "sessions": 0, "sessions_inr": 0, "earned_inr": 0, "paid_out_inr": 0, "owed_inr": 0}
            for i in mentor_ids}
     if not mentor_ids:
         return out
@@ -145,7 +145,7 @@ def earnings(db: Session, mentor_ids: list[int], since: datetime | None = None) 
             o = out[c.mentor_id]
             o["calls"] += 1
             o["calls_inr"] += share
-            o["focs_inr"] += c.price_inr - share
+            o["edify_inr"] += c.price_inr - share
     held = db.scalars(select(GroupSession).where(GroupSession.mentor_id.in_(mentor_ids), GroupSession.status == "done")).all()
     seats: dict[int, list[GroupSeat]] = {}
     for s in db.scalars(select(GroupSeat).where(GroupSeat.session_id.in_([g.id for g in held]))) if held else []:
@@ -163,7 +163,7 @@ def earnings(db: Session, mentor_ids: list[int], since: datetime | None = None) 
             o = out[g.mentor_id]
             o["sessions"] += 1
             o["sessions_inr"] += pay
-            o["focs_inr"] += sum(s.price_inr or 0 for s in paid) - share
+            o["edify_inr"] += sum(s.price_inr or 0 for s in paid) - share
     paid = {i: 0 for i in mentor_ids}
     for p in db.scalars(select(MentorPayout).where(MentorPayout.mentor_id.in_(mentor_ids))):
         paid[p.mentor_id] += p.amount_inr

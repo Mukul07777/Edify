@@ -18,9 +18,9 @@ def _user(client, email, exam="jee", name="Test Person", role="student"):
 
 
 def _admin(client, monkeypatch):
-    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@edify")
     monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
-    token = client.post("/api/admin/login", json={"username": "admin@focs", "password": "panel-password-1"}).json()["token"]
+    token = client.post("/api/admin/login", json={"username": "admin@edify", "password": "panel-password-1"}).json()["token"]
     return {"Authorization": f"Bearer {token}"}
 
 

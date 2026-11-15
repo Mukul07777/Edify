@@ -27,8 +27,8 @@ export const SPEECH_LANGS: { value: SpeechLang; label: string; title: string }[]
   { value: "te-IN", label: "తెలు", title: "Telugu" },
   { value: "gu-IN", label: "ગુજ", title: "Gujarati" },
 ];
-const LANG_KEY = "focs-speech-lang";
-const BROWSER_FAILED_KEY = "focs-speech-browser-failed";
+const LANG_KEY = "edify-speech-lang";
+const BROWSER_FAILED_KEY = "edify-speech-browser-failed";
 const MAX_RECORDING_S = 180;
 
 const recognitionCtor = (): RecognitionCtor | null => {

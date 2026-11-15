@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">Edify</string>
     <string name="title_activity_main">Edify</string>
-    <string name="package_name">com.focs.app</string>
-    <string name="custom_url_scheme">com.focs.app</string>
+    <string name="package_name">com.edify.app</string>
+    <string name="custom_url_scheme">com.edify.app</string>
 </resources>

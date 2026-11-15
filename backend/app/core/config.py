@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Database: SUPABASE_DB_URL (Postgres) when set, else the local SQLite file.
     # An explicit DATABASE_URL overrides both (used by tests).
     DATABASE_URL: str = ""
-    SQLITE_PATH: Path = BACKEND_DIR / "focs.db"
+    SQLITE_PATH: Path = BACKEND_DIR / "edify.db"
 
     # Supabase (database + storage for board snapshots)
     SUPABASE_URL: str = ""
@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     FRONTEND_DIST: Path = REPO_DIR / "frontend" / "dist"
 
     # OCR / live capture
-    OCR_ENGINE: str = "auto"  # auto (ensemble) | focs | rapid
+    OCR_ENGINE: str = "auto"  # auto (ensemble) | edify | rapid
     # CPU threads each OCR model may use. Left to itself ONNX Runtime takes every core, and a laptop running Edify
     # next to the lecture video stuttered on every new board (15 CPU-seconds in 3.5 s on 12 cores).
     OCR_THREADS: int = 2
@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     OCR_MIN_CHARS: int = 12
     OCR_MIN_LINE_CONFIDENCE: float = 0.5
     # Ensemble rule, fitted on the frame benchmark (scripts/benchmark_ocr.py --analyze):
-    # pick EdifyOCR when conf_focs + margin (+ math bonus) >= conf_ppocr
+    # pick EdifyOCR when conf_edify + margin (+ math bonus) >= conf_ppocr
     OCR_ENSEMBLE_MARGIN: float = 0.0
     OCR_MATH_BONUS: float = 0.08
     FRAME_HASH_THRESHOLD: int = 2        # Hamming distance (of 64) at or below which frames are "the same board"
@@ -233,7 +233,7 @@ class Settings(BaseSettings):
     COACH_NIGHTLY_CRON: str = "30 21 * * *"  # the nightly review, India time
     # Admin panel (/admin): its own ID and password, separate from every student account.
     # Set them with set_admin.bat, which stores only a bcrypt hash of the password.
-    ADMIN_USERNAME: str = "admin@focs"
+    ADMIN_USERNAME: str = "admin@edify"
     ADMIN_PASSWORD_HASH: str = ""
     ADMIN_SESSION_HOURS: int = 8
     GOAL_CUSTOMERS: int = 200  # the target shown on the admin dashboard

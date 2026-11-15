@@ -49,7 +49,7 @@ export default function AdminLogin() {
           <form onSubmit={submit} className="mt-8 space-y-4">
             <div>
               <Label htmlFor="admin-id">Admin ID</Label>
-              <Input id="admin-id" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="admin@focs"
+              <Input id="admin-id" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="admin@edify"
                 autoComplete="username" autoCapitalize="none" spellCheck={false} required autoFocus={!sentFrom} />
             </div>
             <div>

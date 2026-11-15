@@ -22,8 +22,8 @@ def test_study_report_difference_interval_and_limitations(tmp_path):
     assert study_report.compare([5], [3, 4]) is None  # too few to say anything
 
     csv = tmp_path / "results.csv"
-    csv.write_text("participant,group,immediate,next_day,notes\nP01,focs,5,4,\nP02,control,3,,missed day 2\n"
-                   "P03,focs,6,5,\nP04,control,4,3,\n", encoding="utf-8")
+    csv.write_text("participant,group,immediate,next_day,notes\nP01,edify,5,4,\nP02,control,3,,missed day 2\n"
+                   "P03,edify,6,5,\nP04,control,4,3,\n", encoding="utf-8")
     text = study_report.report(study_report.load(csv))
     assert "Right after the lecture" in text and "Next day" in text
     assert "pilot" in text  # 4 students: says so

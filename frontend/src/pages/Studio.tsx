@@ -469,7 +469,7 @@ function LiveStudio({ session: initial, capture: initialCapture, onEnded, onPhot
   const [quiz, setQuiz] = useState<LiveQuestion | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [quizEvery, setQuizEvery] = useState<"off" | "5" | "10">(() => {
-    try { return (localStorage.getItem("focs-quiz-every") as "off" | "5" | "10") || "5"; } catch { return "5"; }
+    try { return (localStorage.getItem("edify-quiz-every") as "off" | "5" | "10") || "5"; } catch { return "5"; }
   });
   const [popLoading, setPopLoading] = useState(false);
   const [notifyPerm, setNotifyPerm] = useState<NotificationPermission | "unsupported">(() => ("Notification" in window ? Notification.permission : "unsupported"));
@@ -626,7 +626,7 @@ function LiveStudio({ session: initial, capture: initialCapture, onEnded, onPhot
     lastQuizAt.current = lectureSecs.current;
     if (document.hidden && !pip.isOpen && "Notification" in window && Notification.permission === "granted") {
       const plain = q.question.replace(/\$+/g, "").replace(/\\[a-zA-Z]+/g, "").replace(/[{}]/g, "").slice(0, 140);
-      const n = new Notification(q.kind === "pop" ? "Pop quiz from Edify" : "Checkpoint from Edify", { body: plain, tag: "focs-quiz" });
+      const n = new Notification(q.kind === "pop" ? "Pop quiz from Edify" : "Checkpoint from Edify", { body: plain, tag: "edify-quiz" });
       n.onclick = () => { window.focus(); n.close(); };
     }
   }, [pip.isOpen]);
@@ -668,7 +668,7 @@ function LiveStudio({ session: initial, capture: initialCapture, onEnded, onPhot
   const changeQuizEvery = (v: "off" | "5" | "10") => {
     setQuizEvery(v);
     lastQuizAt.current = lectureSecs.current;
-    try { localStorage.setItem("focs-quiz-every", v); } catch { /* private mode */ }
+    try { localStorage.setItem("edify-quiz-every", v); } catch { /* private mode */ }
     if (v !== "off") askNotifyPermission();
   };
 

@@ -104,7 +104,7 @@ export function MentorAdmin() {
       {money && (
         <Card>
           <CardHeader title="Mentor calls, master sessions and Pro" icon={<IndianRupee className="h-4 w-4" />}
-            subtitle={`Collected: calls ₹${money.calls_revenue_inr.toLocaleString("en-IN")}, master sessions ₹${money.sessions_revenue_inr.toLocaleString("en-IN")}, Pro ₹${money.pro_revenue_inr.toLocaleString("en-IN")}, mock tests ₹${(money.mocks_revenue_inr ?? 0).toLocaleString("en-IN")}. Edify's ${money.commission_pct}% of calls and seats: ₹${money.focs_share_inr.toLocaleString("en-IN")}. Owed to mentors: ₹${money.owed_to_mentors_inr.toLocaleString("en-IN")}. Send refunds and payouts outside Edify, then record them here.`} />
+            subtitle={`Collected: calls ₹${money.calls_revenue_inr.toLocaleString("en-IN")}, master sessions ₹${money.sessions_revenue_inr.toLocaleString("en-IN")}, Pro ₹${money.pro_revenue_inr.toLocaleString("en-IN")}, mock tests ₹${(money.mocks_revenue_inr ?? 0).toLocaleString("en-IN")}. Edify's ${money.commission_pct}% of calls and seats: ₹${money.edify_share_inr.toLocaleString("en-IN")}. Owed to mentors: ₹${money.owed_to_mentors_inr.toLocaleString("en-IN")}. Send refunds and payouts outside Edify, then record them here.`} />
           <div className="grid gap-5 p-5 md:grid-cols-2">
             <div>
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Refunds owed</div>

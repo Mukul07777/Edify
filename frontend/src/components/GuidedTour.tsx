@@ -151,7 +151,7 @@ export function GuidedTour({ steps, open, onClose }: { steps: TourStep[]; open: 
 }
 
 /** Seen once per account on this device; the ? button replays it. */
-const seenKey = (userId?: number) => `focs.tour.done.${userId ?? "anon"}`;
+const seenKey = (userId?: number) => `edify.tour.done.${userId ?? "anon"}`;
 export function tourSeen(userId?: number): boolean {
   try { return localStorage.getItem(seenKey(userId)) === "1"; } catch { return true; }
 }

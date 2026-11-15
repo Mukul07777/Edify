@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useBackClose } from "@/lib/overlay";
 import { cn } from "@/lib/utils";
 
-const KEY = "focs-lecture-focus";
+const KEY = "edify-lecture-focus";
 const SMALL = "(max-width: 1279px)";  // phones and tablets: one column, the notes would sit under the video
 
 /**

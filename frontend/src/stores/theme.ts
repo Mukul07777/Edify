@@ -2,9 +2,9 @@ import { create } from "zustand";
 
 type Theme = "dark" | "light";
 
-/** Where the choice is kept. A new key (it was "focs-look-3") so everyone opens the editorial redesign in Stone once;
+/** Where the choice is kept. A new key (it was "edify-look-3") so everyone opens the editorial redesign in Stone once;
     from then on their own choice sticks. index.html reads it before the first paint, scripts/a11y.mjs sets it. */
-export const THEME_KEY = "focs-look-4";
+export const THEME_KEY = "edify-look-4";
 const STONE = "#f4f3ef";
 const INK = "#0e0e0d";
 

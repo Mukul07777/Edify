@@ -66,12 +66,12 @@ def analyze(bench: Path, labels: list[dict]) -> None:
         gts = [norm(l) for l in item["lines"]]
         res = ocr_engine.run(img, "auto", keep_candidates=True)
         for line in res.lines:
-            f, r = line.candidates["focs"], line.candidates["rapid"]
+            f, r = line.candidates["edify"], line.candidates["rapid"]
             ref = min(gts, key=lambda g: min(lev(norm(f["text"]), g), lev(norm(r["text"]), g)))
             rows.append((k % 2, f["text"], f["confidence"], norm(f["text"]) == ref, r["text"], r["confidence"], norm(r["text"]) == ref))
 
     def accuracy(subset, margin, bonus):
-        ok = sum((fok if OcrEngine._pick((tf, cf), (tr, cr), margin, bonus)[2] == "focs" else rok)
+        ok = sum((fok if OcrEngine._pick((tf, cf), (tr, cr), margin, bonus)[2] == "edify" else rok)
                  for _, tf, cf, fok, tr, cr, rok in subset)
         return ok / max(1, len(subset))
 

@@ -9,9 +9,9 @@ import { api } from "@/lib/api";
 import type { Benchmark, OcrResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type Engine = "auto" | "focs" | "rapid";
-const ENGINE_LABEL: Record<string, string> = { auto: "Ensemble", focs: "EdifyOCR", rapid: "PP-OCRv4" };
-const ENGINE_COLOR: Record<string, string> = { focs: "var(--accent)", rapid: "var(--accent-2)" };
+type Engine = "auto" | "edify" | "rapid";
+const ENGINE_LABEL: Record<string, string> = { auto: "Ensemble", edify: "EdifyOCR", rapid: "PP-OCRv4" };
+const ENGINE_COLOR: Record<string, string> = { edify: "var(--accent)", rapid: "var(--accent-2)" };
 
 const SAMPLES = {
   chalkboard: { bg: "#1d3a2e", fg: ["#f3f3ea", "#f6e27a", "#f3f3ea", "#9fd3f7", "#f3f3ea"] },
@@ -213,7 +213,7 @@ export default function OcrLab() {
       <PageHeader title="OCR Lab" eyebrow={<span className="flex items-center gap-1.5"><FlaskConical className="h-3.5 w-3.5" />Under the hood</span>}
         subtitle="See exactly how Edify reads a board. Compare our model with PP-OCRv4 line by line."
         actions={<Segmented value={engine} onChange={(e) => { setEngine(e); if (file) run.mutate({ f: file, e }); }}
-          options={[{ value: "auto", label: "Ensemble" }, { value: "focs", label: "EdifyOCR" }, { value: "rapid", label: "PP-OCRv4" }]} />} />
+          options={[{ value: "auto", label: "Ensemble" }, { value: "edify", label: "EdifyOCR" }, { value: "rapid", label: "PP-OCRv4" }]} />} />
 
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         <div className="space-y-4">

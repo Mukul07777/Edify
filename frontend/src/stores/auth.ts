@@ -22,6 +22,6 @@ export const useAuth = create<AuthState>()(
       setUser: (user) => set({ user }),
       logout: () => set({ token: null, user: null, redirect: null }),
     }),
-    { name: "focs-auth", partialize: (s) => ({ token: s.token, user: s.user }) },
+    { name: "edify-auth", partialize: (s) => ({ token: s.token, user: s.user }) },
   ),
 );

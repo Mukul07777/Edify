@@ -10,7 +10,7 @@
       "wer": null,
       "ms_per_image": 1043.0
     },
-    "focs": {
+    "edify": {
       "cer": 0.0048,
       "line_acc": 0.9693,
       "wer": null,
@@ -26,32 +26,32 @@
   "by_style": {
     "chalkboard": {
       "auto": 0.0087,
-      "focs": 0.0075,
+      "edify": 0.0075,
       "rapid": 0.0908
     },
     "code screen": {
       "auto": 0.0038,
-      "focs": 0.0044,
+      "edify": 0.0044,
       "rapid": 0.0586
     },
     "notebook": {
       "auto": 0.0023,
-      "focs": 0.0017,
+      "edify": 0.0017,
       "rapid": 0.0664
     },
     "pen tablet": {
       "auto": 0.0017,
-      "focs": 0.0017,
+      "edify": 0.0017,
       "rapid": 0.0695
     },
     "slide": {
       "auto": 0.0065,
-      "focs": 0.0065,
+      "edify": 0.0065,
       "rapid": 0.0747
     },
     "whiteboard": {
       "auto": 0.0063,
-      "focs": 0.0058,
+      "edify": 0.0058,
       "rapid": 0.0704
     }
   },

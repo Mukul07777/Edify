@@ -7,4 +7,4 @@ Disallow: /admin
 Disallow: /onboarding
 Disallow: /p/
 
-Sitemap: https://focs.in/sitemap.xml
+Sitemap: https://edify.in/sitemap.xml

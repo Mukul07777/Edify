@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /** The language a paper is read in: SSC prints every question in English and Hindi. Kept per device. */
 export type PaperLanguage = "en" | "hi";
-const KEY = "focs-paper-language";
+const KEY = "edify-paper-language";
 
 export function usePaperLanguage(): [PaperLanguage, (l: PaperLanguage) => void] {
   const [lang, setLang] = useState<PaperLanguage>(() => {

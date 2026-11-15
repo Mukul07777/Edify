@@ -11,7 +11,7 @@ from app.models.note import Note
 from app.models.session import StudySession
 from app.services.text_utils import guess_subject
 
-log = logging.getLogger("focs.db")
+log = logging.getLogger("edify.db")
 _HEADING = re.compile(r"^\s*#{1,4}\s+(.+?)\s*#*\s*$", re.MULTILINE)
 _GENERIC = {"lecture notes", "notes", "introduction", "key concepts", "important concepts", "board notes", "formulas"}
 

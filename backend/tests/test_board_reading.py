@@ -125,7 +125,7 @@ def test_live_frames_use_the_light_ocr_and_the_full_one_only_when_vision_fails(c
     monkeypatch.setattr(vision, "read_board", lambda jpeg, patient=False: "Snell's law: $n_1 \\sin\\theta_1 = n_2 \\sin\\theta_2$")
     r = client.post(f"/api/capture/{sid}/frame", headers=h,
                     files={"frame": ("f.png", board_png(["Refraction of light", "Snell's law n1 sin i = n2 sin r", "Critical angle sin C = 1/n"]), "image/png")}).json()
-    assert r["status"] == "created" and modes == ["focs"]  # the vision model read it: EdifyOCR alone decided it was new
+    assert r["status"] == "created" and modes == ["edify"]  # the vision model read it: EdifyOCR alone decided it was new
     assert r["note"]["ocr_raw"].startswith("Snell's law")
 
     modes.clear()
@@ -133,7 +133,7 @@ def test_live_frames_use_the_light_ocr_and_the_full_one_only_when_vision_fails(c
     sid = client.post("/api/sessions", headers=h, json={"title": "Waves"}).json()["id"]
     r = client.post(f"/api/capture/{sid}/frame", headers=h,
                     files={"frame": ("f.png", board_png(["Wave optics", "Fringe width beta = lambda D / d", "Young double slit experiment"]), "image/png")}).json()
-    assert r["status"] == "created" and modes == ["focs", "auto"]  # read again by both models for the notes
+    assert r["status"] == "created" and modes == ["edify", "auto"]  # read again by both models for the notes
     assert "fringe" in r["note"]["ocr_raw"].lower()
 
 

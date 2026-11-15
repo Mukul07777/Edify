@@ -28,12 +28,12 @@ OVERALL STATUS
       Android app icons, boot screen.
     - Service worker cache bumped so phones pick up the new logo.
 
-1.2 Rename "focs" -> "edify"  ................................... DONE
+1.2 Rename "edify" -> "edify"  ................................... DONE
     - About 69 files: run.bat banner, OCR model (edifyocr.onnx),
       ml/edify_ocr, EDIFY_* environment variables, page titles, docs.
     - Kept on purpose (renaming would break existing data/installs):
-      focs.db database file, focs_inr columns, saved browser keys,
-      Android package id com.focs.app, keystore alias, demo emails.
+      edify.db database file, edify_inr columns, saved browser keys,
+      Android package id com.edify.app, keystore alias, demo emails.
 
 1.3 Sentry removed  ............................................ DONE
     - Backend monitoring module, frontend sentry files, config,
@@ -141,7 +141,7 @@ OVERALL STATUS
         "Built during the hackathon" table.
     [x] Demo data: seed_demo.py now makes a batch with root traces, a
         passed fix in Hinglish, and a coach planning the root first.
-        Password for every demo account: focs-demo-2026.
+        Password for every demo account: edify-demo-2026.
     Bugs found and fixed on the way:
     [x] Deleting an account failed (Postgres) for anyone who used
         Root cause, the coach, or Ask a senior.

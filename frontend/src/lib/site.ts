@@ -2,7 +2,7 @@
 export const SITE = {
   name: "Edify",
   legalName: (import.meta.env.VITE_LEGAL_NAME as string | undefined) || "Edify",
-  supportEmail: (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) || "support@focs.in",  // students' help and privacy requests
+  supportEmail: (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined) || "support@edify.in",  // students' help and privacy requests
   grievanceOfficer: (import.meta.env.VITE_GRIEVANCE_OFFICER as string | undefined) || "Mukul",  // DPDP Act, 2023
   jurisdiction: (import.meta.env.VITE_JURISDICTION as string | undefined) || "India",
   updated: "24 October 2026",

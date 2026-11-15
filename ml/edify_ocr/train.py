@@ -25,7 +25,7 @@ from .model import EdifyOCRNet
 
 ML_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ML_ROOT.parent
-DB_PATH = REPO_ROOT / "backend" / "focs.db"
+DB_PATH = REPO_ROOT / "backend" / "edify.db"
 
 
 def worker_init(_):

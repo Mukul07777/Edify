@@ -379,7 +379,7 @@ function Exam({ test }: { test: MockDetail }) {
             </div>
           </div>
 
-          {rough && <RoughPad storageKey={`focs-rough-${test.id}`} page={String(q.id)} onClose={() => setRough(false)} />}
+          {rough && <RoughPad storageKey={`edify-rough-${test.id}`} page={String(q.id)} onClose={() => setRough(false)} />}
 
           {/* NTA action bar */}
           <div className="border-t border-line bg-bg-soft px-3 py-2.5 sm:px-6">

@@ -1,5 +1,5 @@
 {
-  "name": "focs-mobile",
+  "name": "edify-mobile",
   "private": true,
   "version": "1.0.0",
   "description": "The Edify Android app: the web app in a native shell (Capacitor), talking to a Edify server.",

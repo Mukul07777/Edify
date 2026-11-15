@@ -58,13 +58,13 @@ export function LinkStudio({ session: initial, onEnded }: { session: StudySessio
   const ending = useRef(false);
   const mounted = useRef(true);
   const watchedSecs = useRef(0);
-  const posKey = `focs-link-pos-${session.id}`;
+  const posKey = `edify-link-pos-${session.id}`;
 
   const [quiz, setQuiz] = useState<LiveQuestion | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [confidence, setConfidence] = useState<Confidence | null>(null);
   const [quizEvery, setQuizEvery] = useState<"off" | "5" | "10">(() => {
-    try { return (localStorage.getItem("focs-quiz-every") as "off" | "5" | "10") || "5"; } catch { return "5"; }
+    try { return (localStorage.getItem("edify-quiz-every") as "off" | "5" | "10") || "5"; } catch { return "5"; }
   });
   const lastQuizAt = useRef(0);
   const quizRef = useRef<LiveQuestion | null>(null);
@@ -223,7 +223,7 @@ export function LinkStudio({ session: initial, onEnded }: { session: StudySessio
   const changeQuizEvery = (v: "off" | "5" | "10") => {
     setQuizEvery(v);
     lastQuizAt.current = watchedSecs.current;
-    try { localStorage.setItem("focs-quiz-every", v); } catch { /* private mode */ }
+    try { localStorage.setItem("edify-quiz-every", v); } catch { /* private mode */ }
   };
 
   const end = useMutation({

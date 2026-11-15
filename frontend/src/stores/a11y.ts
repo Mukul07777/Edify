@@ -31,6 +31,6 @@ export const useA11y = create<A11y & { set: (patch: Partial<A11y>) => void; rese
       set: (patch) => { set(patch); applyA11y({ ...get(), ...patch }); },
       reset: () => { set(DEFAULTS); applyA11y(DEFAULTS); },
     }),
-    { name: "focs-a11y", onRehydrateStorage: () => (state) => applyA11y(state ?? DEFAULTS) },
+    { name: "edify-a11y", onRehydrateStorage: () => (state) => applyA11y(state ?? DEFAULTS) },
   ),
 );

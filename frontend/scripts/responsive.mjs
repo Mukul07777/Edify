@@ -99,7 +99,7 @@ try {
       const acc = await account(a);
       made.push(acc);
       const ctx = await browser.newContext(opts);
-      await ctx.addInitScript(([token, u]) => localStorage.setItem("focs-auth", JSON.stringify({ state: { token, user: u }, version: 0 })), [acc.access_token, acc.user]);
+      await ctx.addInitScript(([token, u]) => localStorage.setItem("edify-auth", JSON.stringify({ state: { token, user: u }, version: 0 })), [acc.access_token, acc.user]);
       for (const p of STUDENT) await visit(ctx, screen, p, a.exam_target);
       await ctx.close();
     }

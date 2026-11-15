@@ -24,7 +24,7 @@
       try {
         // Stone (light) is Edify's first look; Ink (dark) is for whoever switches to it (top right).
         // The key is THEME_KEY in src/stores/theme.ts.
-        if (localStorage.getItem("focs-look-4") === "dark") {
+        if (localStorage.getItem("edify-look-4") === "dark") {
           document.documentElement.dataset.theme = "dark";
           document.querySelector('meta[name="theme-color"]').setAttribute("content", "#0e0e0d");
         }

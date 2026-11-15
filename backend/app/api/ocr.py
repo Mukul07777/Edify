@@ -27,7 +27,7 @@ def model_info(user: User = Depends(get_current_user)):
 @router.post("/run", dependencies=[Depends(limit("ocr", 30))])
 def run_ocr(
     image: UploadFile = File(...),
-    engine: Literal["auto", "focs", "rapid"] = Form("auto"),
+    engine: Literal["auto", "edify", "rapid"] = Form("auto"),
     user: User = Depends(get_current_user),
 ):
     img = _read_image(image)

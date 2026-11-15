@@ -35,7 +35,7 @@ for (const [w, h] of SIZES) {
   for (const exam of ACCOUNTS) {
     const a = await reg(exam);
     const c = await b.newContext({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
-    await c.addInitScript(([t, u]) => localStorage.setItem("focs-auth", JSON.stringify({ state: { token: t, user: u }, version: 0 })), [a.access_token, a.user]);
+    await c.addInitScript(([t, u]) => localStorage.setItem("edify-auth", JSON.stringify({ state: { token: t, user: u }, version: 0 })), [a.access_token, a.user]);
     const p = await c.newPage();
     for (const path of APP) { await p.goto(BASE + path); await p.waitForTimeout(1100); const r = await p.evaluate(check); pages++; note("CUT", `${w} ${exam} ${path}`, r.cut); note("SMALL", `${w} ${exam} ${path}`, r.small); if (r.wide) note("WIDE", `${w} ${exam}`, [path]); }
     await c.close();

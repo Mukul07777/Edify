@@ -43,7 +43,7 @@ def test_cost_ledger_prices_and_attribution(client):
         assert len([r for r in db.scalars(select(LlmCall).where(LlmCall.user_id.is_(None))) if r.feature in ("board_notes", "doubt")]) >= 3
 
 
-def _admin_login(client, username="admin@focs", password="panel-password-1"):
+def _admin_login(client, username="admin@edify", password="panel-password-1"):
     return client.post("/api/admin/login", json={"username": username, "password": password})
 
 
@@ -51,7 +51,7 @@ def _admin_login(client, username="admin@focs", password="panel-password-1"):
 def admin_panel(monkeypatch):
     from app.core.security import hash_password
 
-    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@edify")
     monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
 
 
@@ -61,11 +61,11 @@ def test_admin_panel_has_its_own_sign_in(client, admin_panel):
     assert client.get("/api/admin/overview").status_code == 401
 
     assert _admin_login(client, password="wrong-password-1").status_code == 401
-    assert _admin_login(client, username="root@focs").status_code == 401
-    r = _admin_login(client, username="  Admin@Focs ")  # the ID is not case-sensitive
-    assert r.status_code == 200 and r.json()["username"] == "admin@focs"
+    assert _admin_login(client, username="root@edify").status_code == 401
+    r = _admin_login(client, username="  Admin@Edify ")  # the ID is not case-sensitive
+    assert r.status_code == 200 and r.json()["username"] == "admin@edify"
     admin = {"Authorization": f"Bearer {r.json()['token']}"}
-    assert client.get("/api/admin/me", headers=admin).json() == {"username": "admin@focs"}
+    assert client.get("/api/admin/me", headers=admin).json() == {"username": "admin@edify"}
     assert client.get("/api/auth/me", headers=admin).status_code == 401  # and the admin session is no student login
     assert "is_admin" not in client.get("/api/auth/me", headers=member).json()
 
@@ -122,9 +122,9 @@ def test_admin_hash_survives_the_env_file(tmp_path):
 
     hashed = hash_password("panel-password-1")
     env = tmp_path / ".env"
-    env.write_text(f"ADMIN_USERNAME=boss@focs\nADMIN_PASSWORD_HASH='{hashed}'\n", encoding="utf-8")
+    env.write_text(f"ADMIN_USERNAME=boss@edify\nADMIN_PASSWORD_HASH='{hashed}'\n", encoding="utf-8")
     loaded = Settings(_env_file=str(env))
-    assert loaded.ADMIN_USERNAME == "boss@focs" and loaded.ADMIN_PASSWORD_HASH == hashed
+    assert loaded.ADMIN_USERNAME == "boss@edify" and loaded.ADMIN_PASSWORD_HASH == hashed
     assert verify_password("panel-password-1", loaded.ADMIN_PASSWORD_HASH)
 
 
@@ -160,19 +160,19 @@ def test_set_admin_script_updates_env_in_place(tmp_path, monkeypatch):
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
     env = tmp_path / ".env"
-    env.write_text("GROQ_API_KEY=keep-me\nADMIN_USERNAME=old@focs\nSECRET_KEY=keep-me-too\n", encoding="utf-8")
+    env.write_text("GROQ_API_KEY=keep-me\nADMIN_USERNAME=old@edify\nSECRET_KEY=keep-me-too\n", encoding="utf-8")
     monkeypatch.setattr(script, "ENV", env)
 
     hashed = hash_password("panel-password-1")
-    script.save({"ADMIN_USERNAME": "admin@focs", "ADMIN_PASSWORD_HASH": f"'{hashed}'"})
+    script.save({"ADMIN_USERNAME": "admin@edify", "ADMIN_PASSWORD_HASH": f"'{hashed}'"})
     text = env.read_text(encoding="utf-8")
-    assert "GROQ_API_KEY=keep-me" in text and "SECRET_KEY=keep-me-too" in text and "old@focs" not in text
+    assert "GROQ_API_KEY=keep-me" in text and "SECRET_KEY=keep-me-too" in text and "old@edify" not in text
     loaded = Settings(_env_file=str(env))
-    assert loaded.ADMIN_USERNAME == "admin@focs" and verify_password("panel-password-1", loaded.ADMIN_PASSWORD_HASH)
+    assert loaded.ADMIN_USERNAME == "admin@edify" and verify_password("panel-password-1", loaded.ADMIN_PASSWORD_HASH)
 
 
 def test_admin_id_on_the_student_sign_in_points_to_the_panel(client, admin_panel):
-    r = client.post("/api/auth/login", json={"email": " Admin@Focs ", "password": "panel-password-1"})
+    r = client.post("/api/auth/login", json={"email": " Admin@Edify ", "password": "panel-password-1"})
     assert r.status_code == 409 and "/admin" in r.json()["detail"] and "token" not in r.text
     r = client.post("/api/auth/login", json={"email": "not-an-email", "password": "whatever-123"})
     assert r.status_code == 401 and r.json()["detail"] == "Incorrect email or password."

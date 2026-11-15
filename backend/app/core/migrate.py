@@ -1,7 +1,7 @@
 """One-time copy of the local SQLite database into a new (empty) Postgres database, e.g. Supabase.
 
 Runs automatically on startup when Edify points at Postgres, the Postgres database has no users yet
-and a local focs.db exists. The copy is a single transaction (all or nothing) and the SQLite file is
+and a local edify.db exists. The copy is a single transaction (all or nothing) and the SQLite file is
 never modified, so it remains a backup.
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from sqlalchemy import Engine, create_engine, func, inspect, select, text
 
 from app.core.database import Base
 
-log = logging.getLogger("focs.db")
+log = logging.getLogger("edify.db")
 CHUNK = 500
 
 

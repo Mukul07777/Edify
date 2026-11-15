@@ -68,7 +68,7 @@ Settings, Server, and the app comes back to its own screen whenever the server d
 
 ## Before publishing
 
-- **App id**: `com.focs.app` in `capacitor.config.json` and `android/app/build.gradle`. It can never change once the
+- **App id**: `com.edify.app` in `capacitor.config.json` and `android/app/build.gradle`. It can never change once the
   app is on the Play Store, so set the one you want first (the Java package folder follows it).
 - **Signing**: a debug APK is fine for your own phones. For anything you hand out, make a key once and build a
   release: see `keystore.properties.example`, then `build_apk.bat release` writes `Edify.apk`. Keep the key safe:

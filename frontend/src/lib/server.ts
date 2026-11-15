@@ -4,7 +4,7 @@
  *  shell does is learn where your Edify server is and hand the app over to it; from then on the app shows the
  *  server's own pages, exactly as a browser would. So the app is never a version behind the web, and it needs no
  *  special access to the server. */
-const KEY = "focs-server";
+const KEY = "edify-server";
 const SHELL = "http://localhost";  // where the app serves its own screen from (mobile/capacitor.config.json)
 
 /** This build is the app's shell. */

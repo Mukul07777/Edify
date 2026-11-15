@@ -3,10 +3,10 @@
 import fs from "node:fs";
 import { chromium } from "../frontend/node_modules/playwright/index.mjs";
 
-const BASE = "http://127.0.0.1:8011", PW = "focs-demo-2026";
+const BASE = "http://127.0.0.1:8011", PW = "edify-demo-2026";
 const meta = JSON.parse(fs.readFileSync("shots/shots.json", "utf8"));
 const login = async (key) => (await fetch(`${BASE}/api/auth/login`, { method: "POST", headers: { "content-type": "application/json" },
-  body: JSON.stringify({ email: `demo.focs.${key}@example.com`, password: PW }) })).json();
+  body: JSON.stringify({ email: `demo.edify.${key}@example.com`, password: PW }) })).json();
 const api = async (token, path) => (await fetch(BASE + "/api" + path, { headers: { Authorization: `Bearer ${token}` } })).json().catch(() => null);
 const browser = await chromium.launch({ channel: "msedge" });
 const out = {};
@@ -15,8 +15,8 @@ async function measure(key, shot, path, targets) {
   const a = await login(key);
   const ctx = await browser.newContext({ viewport: { width: 1440, height: meta[shot].tallH } });
   await ctx.addInitScript((a) => {
-    localStorage.setItem("focs-auth", JSON.stringify({ state: { token: a.access_token, user: a.user }, version: 0 }));
-    localStorage.setItem(`focs.tour.done.${a.user.id}`, "1");
+    localStorage.setItem("edify-auth", JSON.stringify({ state: { token: a.access_token, user: a.user }, version: 0 }));
+    localStorage.setItem(`edify.tour.done.${a.user.id}`, "1");
   }, a);
   const page = await ctx.newPage();
   await page.goto(BASE + (typeof path === "function" ? await path(a.access_token) : path));

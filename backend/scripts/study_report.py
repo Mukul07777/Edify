@@ -3,7 +3,7 @@ next day, with the uncertainty and the limitations stated next to the numbers.
 
     python scripts/study_report.py ../docs/evidence/study_results.csv
 
-The CSV has one row per student: participant, group (focs | control), immediate, next_day (scores out of 6; leave
+The CSV has one row per student: participant, group (edify | control), immediate, next_day (scores out of 6; leave
 next_day empty for anyone who missed it). See docs/evidence/LEARNING_STUDY.md for how the study is run.
 Plain Python on purpose: anyone can check the arithmetic.
 """
@@ -39,8 +39,8 @@ def load(path: Path) -> list[dict]:
             if not (r.get("participant") or "").strip():
                 continue
             group = (r.get("group") or "").strip().lower()
-            if group not in ("focs", "control"):
-                raise SystemExit(f"participant {r['participant']}: group must be focs or control, not {group!r}")
+            if group not in ("edify", "control"):
+                raise SystemExit(f"participant {r['participant']}: group must be edify or control, not {group!r}")
             score = lambda k: float(r[k]) if (r.get(k) or "").strip() else None  # noqa: E731
             row = {"participant": r["participant"].strip(), "group": group, "immediate": score("immediate"), "next_day": score("next_day")}
             for k in ("immediate", "next_day"):
@@ -50,32 +50,32 @@ def load(path: Path) -> list[dict]:
     return rows
 
 
-def compare(focs: list[float], control: list[float]) -> dict | None:
+def compare(edify: list[float], control: list[float]) -> dict | None:
     """Mean difference (Edify minus control) with a Welch 95% interval and Cohen's d. None if a group has under 2."""
-    if len(focs) < 2 or len(control) < 2:
+    if len(edify) < 2 or len(control) < 2:
         return None
-    m1, m2 = statistics.mean(focs), statistics.mean(control)
-    v1, v2 = statistics.variance(focs), statistics.variance(control)
-    n1, n2 = len(focs), len(control)
+    m1, m2 = statistics.mean(edify), statistics.mean(control)
+    v1, v2 = statistics.variance(edify), statistics.variance(control)
+    n1, n2 = len(edify), len(control)
     se = math.sqrt(v1 / n1 + v2 / n2)
     df = (v1 / n1 + v2 / n2) ** 2 / ((v1 / n1) ** 2 / (n1 - 1) + (v2 / n2) ** 2 / (n2 - 1)) if se else n1 + n2 - 2
     pooled = math.sqrt(((n1 - 1) * v1 + (n2 - 1) * v2) / (n1 + n2 - 2))
     diff = m1 - m2
     half = t95(df) * se
-    return {"focs_mean": m1, "control_mean": m2, "focs_sd": math.sqrt(v1), "control_sd": math.sqrt(v2), "n_focs": n1, "n_control": n2,
+    return {"edify_mean": m1, "control_mean": m2, "edify_sd": math.sqrt(v1), "control_sd": math.sqrt(v2), "n_edify": n1, "n_control": n2,
             "diff": diff, "ci": (diff - half, diff + half), "d": diff / pooled if pooled else None, "df": df}
 
 
 def limitations(rows: list[dict]) -> list[str]:
     notes = []
     n = len(rows)
-    groups = {g: sum(r["group"] == g for r in rows) for g in ("focs", "control")}
+    groups = {g: sum(r["group"] == g for r in rows) for g in ("edify", "control")}
     if n < 12:
         notes.append(f"Only {n} students: far too few to generalise; treat this as a pilot.")
     else:
         notes.append(f"{n} students is a small sample: the interval shows how much the result could move.")
-    if abs(groups["focs"] - groups["control"]) > 2:
-        notes.append(f"The groups are uneven ({groups['focs']} with Edify, {groups['control']} without).")
+    if abs(groups["edify"] - groups["control"]) > 2:
+        notes.append(f"The groups are uneven ({groups['edify']} with Edify, {groups['control']} without).")
     missed = sum(r["next_day"] is None for r in rows)
     if missed:
         notes.append(f"{missed} students missed the next-day test; the next-day numbers leave them out.")
@@ -88,7 +88,7 @@ def report(rows: list[dict]) -> str:
     out = [f"| Learning study ({len(rows)} students, scores out of {MAX_SCORE}) | With Edify | Without | Difference (95% interval) | Effect size d |",
            "|---|---|---|---|---|"]
     for k, label in (("immediate", "Right after the lecture"), ("next_day", "Next day")):
-        f = [r[k] for r in rows if r["group"] == "focs" and r[k] is not None]
+        f = [r[k] for r in rows if r["group"] == "edify" and r[k] is not None]
         c = [r[k] for r in rows if r["group"] == "control" and r[k] is not None]
         res = compare(f, c)
         if res is None:
@@ -96,7 +96,7 @@ def report(rows: list[dict]) -> str:
             continue
         lo, hi = res["ci"]
         d = f"{res['d']:.2f}" if res["d"] is not None else "n/a"
-        out.append(f"| {label} | {res['focs_mean']:.2f} ± {res['focs_sd']:.2f} (n={res['n_focs']}) | {res['control_mean']:.2f} ± {res['control_sd']:.2f} "
+        out.append(f"| {label} | {res['edify_mean']:.2f} ± {res['edify_sd']:.2f} (n={res['n_edify']}) | {res['control_mean']:.2f} ± {res['control_sd']:.2f} "
                    f"(n={res['n_control']}) | {res['diff']:+.2f} ({lo:+.2f} to {hi:+.2f}) | {d} |")
     out.append("")
     out.append("± is the standard deviation. If the interval includes 0, this study can't tell the groups apart.")

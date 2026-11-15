@@ -20,9 +20,9 @@ def _user(client, email, exam="jee", name="Test Person", role="student"):
 
 
 def _admin(client, monkeypatch):
-    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@edify")
     monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
-    return {"Authorization": "Bearer " + client.post("/api/admin/login", json={"username": "admin@focs", "password": "panel-password-1"}).json()["token"]}
+    return {"Authorization": "Bearer " + client.post("/api/admin/login", json={"username": "admin@edify", "password": "panel-password-1"}).json()["token"]}
 
 
 def _mentor(client, monkeypatch, email, name):
@@ -152,7 +152,7 @@ def test_paid_call_earnings_split(client, monkeypatch):
         db.commit()
     month = client.get("/api/mentors/me/earnings", headers=mentor).json()["month"]
     cut = round(49 * settings.MENTOR_COMMISSION_PCT / 100)
-    assert month["calls"] == 1 and month["calls_inr"] == 49 - cut and month["focs_inr"] == cut and month["sessions"] == 0
+    assert month["calls"] == 1 and month["calls_inr"] == 49 - cut and month["edify_inr"] == cut and month["sessions"] == 0
     summary = client.get("/api/admin/mentors/calls", headers=admin).json()
     row = next(r for r in summary["by_mentor"] if r["mentor"] == "Neha Joshi")
     assert row["owed_inr"] == 49 - cut and summary["commission_pct"] == settings.MENTOR_COMMISSION_PCT

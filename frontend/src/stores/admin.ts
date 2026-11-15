@@ -22,7 +22,7 @@ export const useAdmin = create<AdminState>()(
       signIn: (token, username, expiresInSeconds) => set({ token, username, expiresAt: Date.now() + expiresInSeconds * 1000 }),
       signOut: () => set({ token: null, username: null, expiresAt: null }),
     }),
-    { name: "focs-admin", storage: createJSONStorage(() => sessionStorage) },
+    { name: "edify-admin", storage: createJSONStorage(() => sessionStorage) },
   ),
 );
 

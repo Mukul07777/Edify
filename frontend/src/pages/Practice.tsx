@@ -194,7 +194,7 @@ function Runner({ quiz, onDone }: { quiz: Quiz; onDone: (r: Result[], items: Ite
   const item = items[i];
   const answered = picked !== null || evaluation !== null;
   const [rough, setRough] = useState(false);  // rough work under the question, a page per question
-  const [roughKey] = useState(() => `focs-rough-practice-${Date.now()}`);  // this set's own pages
+  const [roughKey] = useState(() => `edify-rough-practice-${Date.now()}`);  // this set's own pages
 
   const record = (correct: boolean, question: string, q_type: string, score?: number, c?: Confidence) => {
     setResults((r) => [...r, { correct, score }]);

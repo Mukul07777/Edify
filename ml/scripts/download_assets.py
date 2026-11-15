@@ -66,7 +66,7 @@ def fetch(url: str, dest: Path) -> bool:
     if dest.exists() and dest.stat().st_size > 1000:
         return True
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "focs-asset-fetcher"})
+        req = urllib.request.Request(url, headers={"User-Agent": "edify-asset-fetcher"})
         with urllib.request.urlopen(req, timeout=60) as r:
             data = r.read()
         dest.parent.mkdir(parents=True, exist_ok=True)

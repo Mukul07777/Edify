@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { LogoMark } from "@/components/common";
 
-const RELOADED_KEY = "focs-chunk-reload";
+const RELOADED_KEY = "edify-chunk-reload";
 
 /** After a new deploy, lazily loaded pages from the old build no longer exist on the server. */
 function isStaleChunk(error: Error) {

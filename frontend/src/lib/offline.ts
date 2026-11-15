@@ -10,7 +10,7 @@ import { dehydrate, hydrate, onlineManager, type Query, type QueryClient } from 
 import { useSyncExternalStore } from "react";
 import { useAuth } from "@/stores/auth";
 
-const PREFIX = "focs-cache-v1:";
+const PREFIX = "edify-cache-v1:";
 const MAX_AGE_MS = 7 * 24 * 3600_000;  // older than a week: not worth showing
 const MAX_BYTES = 2_500_000;           // leaves room in localStorage for everything else
 // Answers that are only right at the moment they were fetched, or are private beyond the account's own data.

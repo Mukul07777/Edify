@@ -72,7 +72,7 @@ Each of these is in the commit history as small, separate commits:
 
 `python backend/scripts/seed_demo.py` makes demo accounts with all of it ready to show (every name starts with "Demo").
 
-**The 90-second demo** (after `warm_chains.py` and `seed_demo.py`, signed in as `demo.focs.student@example.com`):
+**The 90-second demo** (after `warm_chains.py` and `seed_demo.py`, signed in as `demo.edify.student@example.com`):
 Root cause opens with *Edify noticed*: three Physics chapters from the last mock all rest on Class 10 Electricity →
 **Check it in 2 minutes** finds the gap → the five-minute fix in Hinglish → the trace shows the stuck topic before and
 after → Gap Genome shows where that chapter sits under the rest of JEE.

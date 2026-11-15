@@ -58,7 +58,7 @@ def prepare_line(img: np.ndarray) -> np.ndarray:
 
 
 class EdifyRecognizer:
-    name = "focs"
+    name = "edify"
 
     def __init__(self, model_dir: Path):
         import onnxruntime as ort

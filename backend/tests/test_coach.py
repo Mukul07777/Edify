@@ -167,9 +167,9 @@ def test_a_sample_lecture_and_the_admin_fleet_view(client, agent, monkeypatch):
     assert state["packs"][0]["lecture_id"] == "sample"
     assert state["plan"]["items"][0]["title"].startswith("Look over today's pack")  # first revision is tomorrow; a look back now
     from app.core.security import hash_password
-    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@focs")
+    monkeypatch.setattr(settings, "ADMIN_USERNAME", "admin@edify")
     monkeypatch.setattr(settings, "ADMIN_PASSWORD_HASH", hash_password("panel-password-1"))
-    token = client.post("/api/admin/login", json={"username": "admin@focs", "password": "panel-password-1"}).json()["token"]
+    token = client.post("/api/admin/login", json={"username": "admin@edify", "password": "panel-password-1"}).json()["token"]
     fleet = client.get("/api/admin/coaches", headers={"Authorization": f"Bearer {token}"}).json()
     assert fleet["mode"] == "local" and any(c["lectures"] >= 1 for c in fleet["coaches"])
     assert fleet["policy"]["wakes_per_hour"] == settings.COACH_WAKES_PER_HOUR

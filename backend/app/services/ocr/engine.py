@@ -126,7 +126,7 @@ class OcrEngine:
         self._lock = threading.Lock()
         self._loaded = False
         self.detector = None
-        self.focs = None
+        self.edify = None
         self.rapid_rec = None
         self.errors: dict[str, str] = {}
 
@@ -147,11 +147,11 @@ class OcrEngine:
                 from app.services.ocr.recognizer import EdifyRecognizer
 
                 if (settings.OCR_MODEL_DIR / "edifyocr.onnx").exists():
-                    self.focs = EdifyRecognizer(settings.OCR_MODEL_DIR)
+                    self.edify = EdifyRecognizer(settings.OCR_MODEL_DIR)
                 else:
-                    self.errors["focs"] = "model file not found — run train_ocr.bat"
+                    self.errors["edify"] = "model file not found — run train_ocr.bat"
             except Exception as exc:
-                self.errors["focs"] = str(exc)
+                self.errors["edify"] = str(exc)
                 log.warning("EdifyOCR unavailable: %s", exc)
             self._loaded = True
 
@@ -161,10 +161,10 @@ class OcrEngine:
         card_path = settings.OCR_MODEL_DIR / "model_card.json"
         card = json.loads(card_path.read_text(encoding="utf-8")) if card_path.exists() else None
         engines = []
-        if self.focs and self.rapid_rec:
+        if self.edify and self.rapid_rec:
             engines.append("auto")
-        if self.focs:
-            engines.append("focs")
+        if self.edify:
+            engines.append("edify")
         if self.rapid_rec:
             engines.append("rapid")
         return {"default": self.resolve_mode(None), "engines": engines, "detector": getattr(self.detector, "name", None),
@@ -172,12 +172,12 @@ class OcrEngine:
 
     def resolve_mode(self, mode: str | None) -> str:
         mode = (mode or settings.OCR_ENGINE or "auto").lower()
-        if mode == "auto" and not (self.focs and self.rapid_rec):
-            mode = "focs" if self.focs else "rapid"
-        if mode == "focs" and not self.focs:
+        if mode == "auto" and not (self.edify and self.rapid_rec):
+            mode = "edify" if self.edify else "rapid"
+        if mode == "edify" and not self.edify:
             mode = "rapid"
         if mode == "rapid" and not self.rapid_rec:
-            mode = "focs"
+            mode = "edify"
         return mode
 
     def warm_up(self) -> None:
@@ -205,21 +205,21 @@ class OcrEngine:
         return out
 
     @staticmethod
-    def _pick(focs: tuple[str, float], rapid: tuple[str, float],
+    def _pick(edify: tuple[str, float], rapid: tuple[str, float],
               margin: float | None = None, math_bonus: float | None = None) -> tuple[str, float, str]:
-        (tf, cf), (tr, cr) = focs, rapid
+        (tf, cf), (tr, cr) = edify, rapid
         if not tf:
             return tr, cr, "rapid"
         if not tr:
-            return tf, cf, "focs"
+            return tf, cf, "edify"
         if tf.replace(" ", "") == tr.replace(" ", ""):
-            return (tf, max(cf, cr), "focs") if cf >= cr else (tr, max(cf, cr), "rapid")
+            return (tf, max(cf, cr), "edify") if cf >= cr else (tr, max(cf, cr), "rapid")
         # PP-OCR's English charset has no Greek letters / super- and subscripts; when EdifyOCR reads
         # them with reasonable confidence it is almost certainly seeing math PP-OCR cannot express.
         margin = settings.OCR_ENSEMBLE_MARGIN if margin is None else margin
         math_bonus = settings.OCR_MATH_BONUS if math_bonus is None else math_bonus
         score = cf + margin + (math_bonus if set(tf) & _EDIFY_ONLY and cf >= 0.6 else 0.0)
-        return (tf, cf, "focs") if score >= cr else (tr, cr, "rapid")
+        return (tf, cf, "edify") if score >= cr else (tr, cr, "rapid")
 
     def run(self, img: np.ndarray, mode: str | None = None, keep_candidates: bool = False) -> OcrResult:
         self._load()
@@ -229,25 +229,25 @@ class OcrEngine:
         boxes = order_boxes(self.detector.detect(img)) if self.detector else []
         crops = [crop_quad(img, b) for b in boxes]
 
-        focs_res = self.focs.recognize(crops) if self.focs and mode in ("auto", "focs") else [("", 0.0)] * len(crops)
+        edify_res = self.edify.recognize(crops) if self.edify and mode in ("auto", "edify") else [("", 0.0)] * len(crops)
         rapid_res = self._rapid(crops) if self.rapid_rec and mode in ("auto", "rapid") and crops else [("", 0.0)] * len(crops)
 
         lines: list[OcrLine] = []
-        for box, fr, rr in zip(boxes, focs_res, rapid_res):
+        for box, fr, rr in zip(boxes, edify_res, rapid_res):
             if mode == "auto":
                 # Strong disagreement with no confident engine = neither can read it (subtitles in
                 # another script, a face, a logo): drop rather than invent text.
                 if max(fr[1], rr[1]) < 0.85 and (not fr[0] or not rr[0] or _similar(fr[0], rr[0]) < 0.4):
                     continue
                 text, conf, used = self._pick(fr, rr)
-            elif mode == "focs":
-                (text, conf), used = fr, "focs"
+            elif mode == "edify":
+                (text, conf), used = fr, "edify"
             else:
                 (text, conf), used = rr, "rapid"
             text = " ".join(text.split())
             if not text or conf < settings.OCR_MIN_LINE_CONFIDENCE or looks_like_garbage(text):
                 continue
-            candidates = {"focs": {"text": fr[0], "confidence": round(fr[1], 3)},
+            candidates = {"edify": {"text": fr[0], "confidence": round(fr[1], 3)},
                           "rapid": {"text": rr[0], "confidence": round(rr[1], 3)}} if keep_candidates else {}
             lines.append(OcrLine(text, float(conf), box.round(1).tolist(), used, candidates))
 

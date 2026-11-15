@@ -17,7 +17,7 @@ sys.path.insert(0, str(BACKEND))
 from app.core.security import hash_password  # noqa: E402
 
 ENV = BACKEND / ".env"
-DEFAULT_ID = "admin@focs"
+DEFAULT_ID = "admin@edify"
 MIN_LENGTH = 10
 
 

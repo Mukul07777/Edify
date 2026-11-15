@@ -109,7 +109,7 @@ def test_the_proof_numbers_come_from_real_traces(client):
 
 def test_demo_accounts_never_count_in_the_proof(client):
     """The seeded demo students (scripts/seed_demo.py) are for showing the product, not for the numbers."""
-    _, demo = _user(client, "demo.focs.roots@example.com", "Demo Student (Roots)")
+    _, demo = _user(client, "demo.edify.roots@example.com", "Demo Student (Roots)")
     with SessionLocal() as db:
         before = gaps.proof(db)
         db.add(_trace(demo, "Rotational Motion", TRIG, status="fixed"))

@@ -33,20 +33,20 @@ async function check(page, path) {
 
 for (const theme of ["dark", "light"]) {
   const context = await browser.newContext();
-  await context.addInitScript((t) => localStorage.setItem("focs-look-4", t), theme);
+  await context.addInitScript((t) => localStorage.setItem("edify-look-4", t), theme);
   const page = await context.newPage();
   console.log(`-- ${theme} theme, signed out`);
   for (const path of PUBLIC) await check(page, path);
   const { access_token, user } = await account();
-  await context.addInitScript(([token, u]) => localStorage.setItem("focs-auth", JSON.stringify({ state: { token, user: u }, version: 0 })), [access_token, user]);
+  await context.addInitScript(([token, u]) => localStorage.setItem("edify-auth", JSON.stringify({ state: { token, user: u }, version: 0 })), [access_token, user]);
   console.log(`-- ${theme} theme, signed in`);
   for (const path of SIGNED_IN) await check(page, path);
   await context.close();
   const mentorContext = await browser.newContext();
   const m = await account("mentor");
   await mentorContext.addInitScript(([t, token, u]) => {
-    localStorage.setItem("focs-look-4", t);
-    localStorage.setItem("focs-auth", JSON.stringify({ state: { token, user: u }, version: 0 }));
+    localStorage.setItem("edify-look-4", t);
+    localStorage.setItem("edify-auth", JSON.stringify({ state: { token, user: u }, version: 0 }));
   }, [theme, m.access_token, m.user]);
   const mentorPage = await mentorContext.newPage();
   console.log(`-- ${theme} theme, a mentor account`);
