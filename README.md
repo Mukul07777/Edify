@@ -92,3 +92,8 @@ after → Gap Genome shows where that chapter sits under the rest of JEE.
 4. Sign up, then on the dashboard: **Turn on my coach**, then **Try it with a sample lecture**.
 
 Tests: `cd backend && python -m pytest` (450+ tests, including the coach end to end against a running agent).
+
+## Team
+
+- **Mukul**: creator
+- **Ashpreet**: collaborator
