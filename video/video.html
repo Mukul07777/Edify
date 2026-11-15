@@ -122,6 +122,25 @@ em { font-style: italic; }
 /* ---------- cost ---------- */
 .dots { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
 .dots i { width: 38px; height: 38px; border-radius: 50%; background: rgba(18,18,17,.1); display: block; }
+
+/* ---------- light restyle of the former dark scenes ---------- */
+.hk-card, .hk-re, .node, .blk { background: #fff; color: var(--ink); border: 1px solid rgba(18,18,17,.1); box-shadow: 0 30px 70px -30px rgba(18,18,17,.35); }
+.node.gap { background: #fdf1e1; border: 2px solid var(--amber); }
+.hk-re { border-style: dashed; } .hk-re .ic { background: rgba(18,18,17,.06); }
+.hk-card .caps, .node .caps, .meter .caps { color: var(--muted); }
+.qm, .hk-h1 em { color: var(--amber); }
+.pill.bad, .node .sym { color: var(--bad); border-color: rgba(194,53,58,.45); background: rgba(194,53,58,.08); }
+.node .stamp { background: var(--amber); color: #fff; }
+#hkline { stroke: var(--amber); }
+.scene.light [style*="#e8b46a"] { color: var(--amber) !important; }
+.scene.light [style*="#a4988a"] { color: var(--muted) !important; }
+.meter .trk { background: rgba(18,18,17,.1); }
+.blk.top { background: var(--ink); color: #fff; } .blk.miss { background: #fff; border-color: var(--bad); color: var(--bad); }
+.board, .nbook { box-shadow: 0 40px 80px -36px rgba(18,18,17,.45); }
+.tile { box-shadow: 0 30px 70px -30px rgba(18,18,17,.45), 0 0 0 1px rgba(18,18,17,.1); }
+.tlab { background: var(--ink); color: #fff; box-shadow: 0 14px 30px -12px rgba(18,18,17,.5); }
+.phone { box-shadow: 0 40px 80px -30px rgba(18,18,17,.5); }
+.close-logo { filter: invert(1); }
 </style>
 </head>
 <body>
@@ -219,7 +238,7 @@ function scene(id, theme, section, build) {
 }
 
 // 1. hook: the symptom, the re-teaching, the real gap
-scene("hook", "dark", null, (el, d, at) => {
+scene("hook", "light", null, (el, d, at) => {
   const card = h("div", "abs hk-card", `<div class="caps">JEE · Physics · Class 11</div><div class="ttl">Rotational Motion</div><span class="pill bad">✕ &nbsp;samajh nahi aa raha</span>`, el);
   const pill = card.querySelector(".pill");
   const qs = [[420, 250, -14], [1420, 210, 12], [1500, 560, 20], [330, 600, -8], [1250, 90, 6]].map(([x, y, r]) => { const q = h("div", "abs qm", "?", el); q.style.left = x + "px"; q.style.top = y + "px"; q.dataset.r = r; return q; });
@@ -253,12 +272,12 @@ scene("hook", "dark", null, (el, d, at) => {
 });
 
 // 2. problem: copying the board, and the gap nobody looks for
-scene("problem", "dark", null, (el, d, at) => {
+scene("problem", "light", null, (el, d, at) => {
   const lines = ["Rotational Motion", "τ = r × F", "L = Iω", "τ = dL/dt", "I = Σ mr²"];
   const one = h("div", "abs", "", el); one.style.inset = 0;
   const board = h("div", "abs board", lines.map((l, i) => `<div class="${i ? "" : "t"}"></div>`).join(""), one);
   const paper = h("div", "abs nbook", lines.map(() => `<div></div>`).join(""), one);
-  const arrow = h("div", "abs serif", "copy →", one); Object.assign(arrow.style, { left: "880px", top: "350px", width: "160px", textAlign: "center", font: "italic 500 34px Fraunces", color: "#e8b46a" });
+  const arrow = h("div", "abs serif", "copy →", one); Object.assign(arrow.style, { left: "880px", top: "350px", width: "160px", textAlign: "center", font: "italic 500 34px Fraunces", color: "#d07a1c" });
   const meter = h("div", "abs meter", `<div><div class="caps"><span>Board copy</span><b id="m1">0%</b></div><div class="trk"><div class="fill" style="background:#e8b46a"></div></div></div>
     <div><div class="caps"><span>Samajh</span><b id="m2">0%</b></div><div class="trk"><div class="fill" style="background:#f0898d"></div></div></div>`, one);
   const fills = meter.querySelectorAll(".fill"), nums = meter.querySelectorAll("b");
@@ -507,7 +526,7 @@ scene("teacher", "light", "For teachers", (el, d, at) => {
 });
 
 // 13. and more: five screens, the phone, the dark theme
-scene("more", "dark", "Aur bhi", (el, d, at) => {
+scene("more", "light", "Aur bhi", (el, d, at) => {
   const grid = h("div", "abs", "", el); grid.style.inset = 0;
   const tiles = [["s_mock", "Mock tests", 150, 96, -3], ["s_revise", "Last-day revision", 690, 70, 2], ["s_rooms", "Study rooms", 1230, 100, -2], ["s_mentors", "Mentors", 420, 480, 3], ["s_snap", "Photo se doubt", 960, 500, -3]]
     .map(([shot, txt, x, y, r]) => {
@@ -559,8 +578,8 @@ scene("cost", "light", "Sasta bhi", (el, d, at) => {
 });
 
 // 15. close
-scene("close", "dark", null, (el, d, at) => {
-  const logo = h("img", "abs", "", el); logo.dataset.src = "../frontend/public/logo-mark.png"; Object.assign(logo.style, { left: "900px", top: "150px", width: "120px" });
+scene("close", "light", null, (el, d, at) => {
+  const logo = h("img", "abs", "", el); logo.dataset.src = "../frontend/public/logo-mark.png"; logo.className += " close-logo"; Object.assign(logo.style, { left: "900px", top: "150px", width: "120px" });
   const [word, letters] = wordmark(el, "Edify"); Object.assign(word.style, { left: 0, right: 0, top: "260px", textAlign: "center", fontSize: "260px" });
   const line = h("div", "abs serif", `Symptom nahi, <em style="color:#e8b46a">asli gap</em> theek karo.`, el); Object.assign(line.style, { left: 0, right: 0, top: "580px", textAlign: "center", font: "500 70px Fraunces" });
   const url = h("div", "abs", "github.com/Mukul07777/Edify", el); Object.assign(url.style, { left: 0, right: 0, top: "740px", textAlign: "center", font: "500 30px 'Geist Mono'", color: "#a4988a" });

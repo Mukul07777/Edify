@@ -56,7 +56,7 @@ if (!flag("--encode")) {
 
 if (!val("--to") && !val("--from")) {
   fs.mkdirSync("out", { recursive: true });
-  for (const voice of ["male", "female"]) {
+  for (const voice of ["male"]) {
     const out = `out/edify-demo-${voice}-voice.mp4`;
     const r = spawnSync(FFMPEG, ["-y", "-v", "error", "-framerate", String(FPS), "-i", "frames/f_%05d.jpg", "-i", `audio/${voice}.wav`,
       "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", out], { stdio: "inherit" });
